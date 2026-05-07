@@ -1,0 +1,13 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: rate-limit-mybitcoin-api
+  namespace: default
+spec:
+  rateLimit:
+    average: 30
+    burst: 20
+    period: 1m
+    sourceCriterion:
+      ipStrategy:
+        depth: 1

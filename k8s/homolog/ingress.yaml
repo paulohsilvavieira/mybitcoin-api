@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mybitcoin-api-homolog
+  labels:
+    app: mybitcoin-api-homolog
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: default-rate-limit-mybitcoin-api-homolog@kubernetescrd
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - mybitcoin-api-homolog.ptechsistemas.com
+      secretName: mybitcoin-api-homolog-ptechsistemas-com-tls
+  rules:
+    - host: mybitcoin-api-homolog.ptechsistemas.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: mybitcoin-api-homolog
+                port:
+                  number: 80

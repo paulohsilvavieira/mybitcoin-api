@@ -1,0 +1,98 @@
+name: Manual Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente para deploy'
+        required: true
+        type: choice
+        options:
+          - production
+          - homolog
+      tag:
+        description: 'Tag da imagem Docker (ex: v1.2.3)'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    name: "Deploy ${{ github.event.inputs.environment }} @ ${{ github.event.inputs.tag }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Definir variáveis por ambiente
+        id: vars
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "branch=main"                              >> $GITHUB_OUTPUT
+            echo "manifest=k8s/production/deployment.yaml" >> $GITHUB_OUTPUT
+            echo "argocd_app=mybitcoin-api"              >> $GITHUB_OUTPUT
+          else
+            echo "branch=develop"                          >> $GITHUB_OUTPUT
+            echo "manifest=k8s/homolog/deployment.yaml"    >> $GITHUB_OUTPUT
+            echo "argocd_app=HOMOLOG_mybitcoin-api"     >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.vars.outputs.branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Atualizar image tag no deployment.yaml
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/mybitcoin-api"
+          TAG="${{ github.event.inputs.tag }}"
+          sed -i "s|image: ${IMAGE}:.*|image: ${IMAGE}:${TAG}|" ${{ steps.vars.outputs.manifest }}
+
+      - name: Commit e push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.vars.outputs.manifest }}
+          git diff --cached --quiet || git commit -m "chore: deploy ${{ github.event.inputs.environment }} ${{ github.event.inputs.tag }}"
+          git push origin ${{ steps.vars.outputs.branch }}
+
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd && sudo mv argocd /usr/local/bin/
+
+      - name: Login no ArgoCD
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} \
+            --username admin \
+            --password '${{ secrets.ARGOCD_AUTH_TOKEN }}' \
+            --insecure --grpc-web
+
+      - name: Registrar Application no ArgoCD (idempotente)
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            argocd app create mybitcoin-api \
+              --repo https://github.com/paulohsilvavieira/mybitcoin-api.git \
+              --path k8s/production \
+              --dest-server https://kubernetes.default.svc \
+              --dest-namespace default \
+              --revision main \
+              --upsert \
+              --grpc-web
+          else
+            argocd app create HOMOLOG_mybitcoin-api \
+              --repo https://github.com/paulohsilvavieira/mybitcoin-api.git \
+              --path k8s/homolog \
+              --dest-server https://kubernetes.default.svc \
+              --dest-namespace default \
+              --revision develop \
+              --upsert \
+              --grpc-web
+          fi
+
+      - name: Sync
+        run: argocd app sync ${{ steps.vars.outputs.argocd_app }} --grpc-web --force --prune
+
+      - name: Aguardar health
+        run: argocd app wait ${{ steps.vars.outputs.argocd_app }} --grpc-web --health --timeout 300
+
+      - name: Status final
+        if: always()
+        run: argocd app get ${{ steps.vars.outputs.argocd_app }} --grpc-web || true

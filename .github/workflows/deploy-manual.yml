@@ -1,0 +1,87 @@
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente para deplot'
+        required: true
+        type: choice
+        options:
+          - production
+          - homolog
+
+jobs:
+  rollback:
+    name: "Rollback ${{ github.event.inputs.environment }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Definir variáveis por ambiente
+        id: vars
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "branch=main"                          >> $GITHUB_OUTPUT
+            echo "manifest=k8s/production/deployment.yaml" >> $GITHUB_OUTPUT
+            echo "argocd_app=mybtc-api"          >> $GITHUB_OUTPUT
+          else
+            echo "branch=develop"                       >> $GITHUB_OUTPUT
+            echo "manifest=k8s/homolog/deployment.yaml" >> $GITHUB_OUTPUT
+            echo "argocd_app=HOMOLOG_mybtc-api"  >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.vars.outputs.branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 2
+
+      - name: Obter versão anterior do manifest
+        id: prev
+        run: |
+          PREV_TAG=$(git show HEAD~1:${{ steps.vars.outputs.manifest }} \
+            | grep 'image:' \
+            | sed 's/.*image: [^:]*://')
+          echo "tag=${PREV_TAG}" >> $GITHUB_OUTPUT
+          echo "Revertendo para: ${PREV_TAG}"
+
+      - name: Atualizar image tag no deployment.yaml
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/mybtc-api"
+          sed -i "s|image: ${IMAGE}:.*|image: ${IMAGE}:${{ steps.prev.outputs.tag }}|" \
+            ${{ steps.vars.outputs.manifest }}
+
+      - name: Commit e push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ steps.vars.outputs.manifest }}
+          git commit -m "chore: deploy manual ${{ github.event.inputs.environment }} para ${{ steps.prev.outputs.tag }}"
+          git push origin ${{ steps.vars.outputs.branch }}
+
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd && sudo mv argocd /usr/local/bin/
+
+      - name: Sync
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_OPTS: "--grpc-web"
+        run: argocd app sync ${{ steps.vars.outputs.argocd_app }} --force --prune
+
+      - name: Aguardar health
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_OPTS: "--grpc-web"
+        run: argocd app wait ${{ steps.vars.outputs.argocd_app }} --health --timeout 300
+
+      - name: Status final
+        if: always()
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+          ARGOCD_OPTS: "--grpc-web"
+        run: argocd app get ${{ steps.vars.outputs.argocd_app }} || true
