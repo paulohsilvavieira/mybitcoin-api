@@ -1,0 +1,99 @@
+name: Deploy Production
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-push:
+    name: "1 - Build & Push Docker"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push imagem
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/mybtc-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/mybtc-api:${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  update-manifest:
+    name: "2 - Atualizar tag no manifest de production"
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Atualizar image tag no deployment.yaml
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/mybtc-api"
+          TAG="${{ github.ref_name }}"
+          sed -i "s|image: ${IMAGE}:.*|image: ${IMAGE}:${TAG}|" k8s/production/deployment.yaml
+
+      - name: Commit e push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add k8s/production/deployment.yaml
+          git diff --cached --quiet && echo "Nenhuma alteração no manifest, pulando commit." && exit 0
+          git commit -m "chore: deploy production ${{ github.ref_name }}"
+          git push origin main
+
+  deploy:
+    name: "3 - Deploy ArgoCD (mybtc-api)"
+    needs: update-manifest
+    runs-on: ubuntu-latest
+    env:
+      ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+      ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+      ARGOCD_OPTS: "--grpc-web"
+    steps:
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd && sudo mv argocd /usr/local/bin/
+
+      - name: Registrar Application no ArgoCD (idempotente)
+        run: |
+          argocd app create mybtc-api \
+            --repo https://github.com/paulohsilvavieira/mybtc-api.git \
+            --path k8s/production \
+            --dest-server https://kubernetes.default.svc \
+            --dest-namespace default \
+            --revision main \
+            --sync-policy automated \
+            --auto-prune \
+            --self-heal \
+            --upsert
+
+      - name: Sync
+        run: argocd app sync mybtc-api --force --prune
+
+      - name: Aguardar health
+        run: argocd app wait mybtc-api --health --timeout 300
+
+      - name: Status final
+        if: always()
+        run: argocd app get mybtc-api || true
