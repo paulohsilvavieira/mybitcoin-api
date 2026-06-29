@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { DatabaseProvider } from './database.provider';
 import { DatabaseService } from './database.service';
-import { POOL_TOKEN } from './pool.token';
+import { POOL_TOKEN } from './database.token';
 
 @Global()
 @Module({
