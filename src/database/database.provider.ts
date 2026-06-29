@@ -1,7 +1,7 @@
 import { FactoryProvider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
-import { POOL_TOKEN } from './pool.token';
+import { POOL_TOKEN } from './database.token';
 
 export const DatabaseProvider: FactoryProvider = {
   provide: POOL_TOKEN,
