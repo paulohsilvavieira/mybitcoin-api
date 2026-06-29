@@ -1,29 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const MIGRATIONS_DIR = path.resolve(
-  __dirname,
-  '..',
-  './src/database/migrations',
-);
-
-function getNextSequence(): number {
-  if (!fs.existsSync(MIGRATIONS_DIR)) {
-    fs.mkdirSync(MIGRATIONS_DIR, { recursive: true });
-    return 1;
-  }
-
-  const files = fs
-    .readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith('.sql'));
-  4;
-  if (files.length === 0) return 1;
-
-  const numbers = files
-    .map((f) => parseInt(f.split('_')[0], 10))
-    .filter((n) => !isNaN(n));
-  return Math.max(...numbers) + 1;
-}
+const MIGRATIONS_DIR = path.resolve(__dirname, '', '../migrations');
 
 function main() {
   const name = process.argv[2];
