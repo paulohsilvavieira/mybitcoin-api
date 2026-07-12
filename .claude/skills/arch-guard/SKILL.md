@@ -33,42 +33,41 @@ Extraia as regras antes de abrir qualquer arquivo de código.
 
 **Alvo de `$ARGUMENTS`:** arquivo específico, pasta, ou vazio para analisar o diff atual (`git diff main...HEAD`).
 
-**Este é o passo mais importante antes de qualquer análise.** Código em `src/admin/` segue regras diferentes de código em `src/domain/` ou `src/application/`. Aplicar as regras de Clean Architecture a um módulo administrativo simples é um falso positivo.
+**Este é o passo mais importante antes de qualquer análise.** Código em módulos CRUD segue regras diferentes de código em módulos CA. Aplicar as regras de Clean Architecture a um módulo simples é um falso positivo.
 
 Para cada arquivo no escopo, determine primeiro a qual contexto pertence:
 
 | Caminho | Contexto | Regras que se aplicam |
 |---------|----------|-----------------------|
-| `src/domain/**` | Clean Architecture — Domínio | Regras completas de CA + DDD |
-| `src/application/**` | Clean Architecture — Aplicação | Regras completas de CA + DDD |
-| `src/infrastructure/**` | Clean Architecture — Infraestrutura | Regras completas de CA |
-| `src/interface-adapters/**` | Clean Architecture — Adapters | Regras completas de CA |
-| `src/admin/**` | Abordagem simples | Apenas as regras do Passo 2b |
+| `src/modules/<ctx>/domain/**` | Clean Architecture — Domínio | Regras completas de CA + DDD |
+| `src/modules/<ctx>/application/**` | Clean Architecture — Aplicação | Regras completas de CA + DDD |
+| `src/modules/<ctx>/infrastructure/**` | Clean Architecture — Infraestrutura | Regras completas de CA |
+| `src/modules/<ctx>/presentation/**` | Clean Architecture — Presentation | Regras completas de CA |
+| `src/infrastructure/**` | Infraestrutura global compartilhada | Regras de infra genérica (sem domínio) |
 
 Se o arquivo estiver fora dessas pastas (config, scripts, testes), as regras são relaxadas — analise apenas se solicitado.
 
 **Para decidir se código novo está no contexto certo**, aplique o critério de `docs/architecture/04-quando-usar-clean-architecture.md`:
-- Toca saldo, ledger, segurança, KYC ou Bitcoin? → deve estar em CA (`src/domain/`, `src/application/`, etc.)
-- É CRUD puro sem regra de negócio? → pode estar em `src/admin/`
-- Código de CRUD em `src/domain/` ou `src/application/`? → não é violação de CA, mas é complexidade desnecessária — aponte como sugestão de simplificação (não bloqueante)
-- Código com regra de negócio em `src/admin/`? → **CRÍTICO** — deve ser migrado para CA
+- Toca saldo, ledger, segurança, KYC ou Bitcoin? → deve estar em CA (`src/modules/<ctx>/domain/`, `src/modules/<ctx>/application/`, etc.)
+- É CRUD puro sem regra de negócio? → pode ficar simplificado dentro do módulo correspondente
+- Código com regra de negócio fora de CA? → **CRÍTICO** — deve ser migrado para CA
 
 Arquivos fora de `src/` (config, scripts, testes) têm regras relaxadas — foque na análise deles apenas se solicitado.
 
 ---
 
-## Passo 2a — Regras para `src/admin/` (abordagem simples)
+## Passo 2a — Regras para módulos CRUD (abordagem simples)
 
-Para arquivos em `src/admin/`, aplique apenas estas regras:
+Para módulos sem Clean Architecture completa, aplique apenas estas regras:
 
 - **Controller → Service → `DatabaseService`** — a cadeia permitida. Não deve haver use case separado nem interface de repositório.
 - **DTO obrigatório** — entrada HTTP deve ser validada com `class-validator`. Nunca aceitar `body: any`.
 - **`DatabaseService` injetado via construtor** — nunca o pool diretamente (`POOL_TOKEN`).
 - **Sem regra de negócio** — se o service faz mais que montar SQL e chamar `db.query()`, é sinal de que o fluxo deveria estar em CA. Aponte como **ALTO**.
-- **Sem lógica financeira ou de segurança** — qualquer toque em saldo, ledger, senha ou token dentro de `src/admin/` é **CRÍTICO**.
-- **SQL pode ser inline no service** — permitido em `src/admin/` (diferente dos repositórios de CA).
+- **Sem lógica financeira ou de segurança** — qualquer toque em saldo, ledger, senha ou token dentro de módulo simples é **CRÍTICO**.
+- **SQL pode ser inline no service** — permitido em módulos CRUD (diferente dos repositórios de CA).
 
-Não aplique os passos 2b a 6 para arquivos em `src/admin/`. Pule direto para o veredito.
+Não aplique os passos 2b a 6 para arquivos de módulos CRUD. Pule direto para o veredito.
 
 ---
 
@@ -76,43 +75,54 @@ Não aplique os passos 2b a 6 para arquivos em `src/admin/`. Pule direto para o 
 
 Esta é a regra mais importante. **Dependências só podem apontar para dentro** (em direção ao domínio).
 
-Execute mentalmente (ou via grep se necessário) para cada camada. Ignore `src/admin/` neste passo — ele tem regras próprias (Passo 2a).
+Execute mentalmente (ou via grep se necessário) para cada camada. Ignore módulos CRUD neste passo — eles têm regras próprias (Passo 2a).
 
-### Domínio (`src/domain/`)
+### Domínio (`src/modules/<ctx>/domain/`)
 Não pode importar de nenhuma outra camada do projeto.
 
 ```bash
 # Qualquer resultado aqui é violação CRÍTICA
-grep -r "from '.*application\|from '.*infrastructure\|from '.*interface-adapters" src/domain/
+grep -r "from '.*application\|from '.*infrastructure\|from '.*presentation" src/modules/*/domain/
 ```
 
-Imports permitidos em `src/domain/`:
-- Outros arquivos dentro de `src/domain/`
+Imports permitidos em `src/modules/<ctx>/domain/`:
+- Outros arquivos dentro de `src/modules/<ctx>/domain/`
+- `src/shared/` (DomainError, UnitOfWork)
 - Libs de linguagem pura (sem side effects de framework): não é permitido `@nestjs/`, `pg`, `express`, `bcrypt`, `axios`
 
-### Aplicação (`src/application/`)
-Não pode importar de `infrastructure/` ou `interface-adapters/`.
+### Aplicação (`src/modules/<ctx>/application/`)
+Não pode importar de `infrastructure/` ou `presentation/`.
 
 ```bash
 # Qualquer resultado aqui é violação CRÍTICA
-grep -r "from '.*infrastructure\|from '.*interface-adapters" src/application/
+grep -r "from '.*infrastructure\|from '.*presentation" src/modules/*/application/
 ```
 
-Imports permitidos em `src/application/`:
-- `src/domain/**`
-- Outros arquivos dentro de `src/application/`
+Imports permitidos em `src/modules/<ctx>/application/`:
+- `src/modules/<ctx>/domain/**`
+- Outros arquivos dentro de `src/modules/<ctx>/application/`
+- `src/shared/`
 - Interfaces puras (sem implementação concreta)
 
-### Infraestrutura (`src/infrastructure/`)
-Não pode importar de `src/interface-adapters/`.
+### Infraestrutura do módulo (`src/modules/<ctx>/infrastructure/`)
+Não pode importar de `src/modules/<ctx>/presentation/`.
 
 Imports permitidos:
-- `src/domain/**`
-- `src/application/**` (apenas interfaces, nunca use cases concretos para executar)
+- `src/modules/<ctx>/domain/**`
+- `src/modules/<ctx>/application/**` (apenas interfaces, nunca use cases concretos para executar)
+- `src/shared/`
+- `src/infrastructure/**` (DatabaseService, etc.)
 - Qualquer lib externa (`pg`, `@nestjs/`, `bcrypt`, etc.)
 
-### Interface Adapters (`src/interface-adapters/`)
-Camada mais externa — pode importar de todas as outras.
+### Presentation (`src/modules/<ctx>/presentation/`)
+Camada mais externa do módulo — pode importar de todas as outras dentro do módulo.
+
+Imports permitidos:
+- `src/modules/<ctx>/application/**`
+- `src/modules/<ctx>/domain/**`
+- `src/shared/`
+- `src/infrastructure/**` (DatabaseService, etc.)
+- Qualquer lib externa
 
 Atenção: controllers não devem conter lógica de negócio. Se um controller faz mais do que receber, delegar ao use case e formatar a resposta, é uma violação.
 
@@ -124,17 +134,17 @@ Segundo `docs/architecture/03-estrutura-projeto.md`, cada tipo de artefato tem u
 
 | Artefato | Deve estar em | Violação se estiver em |
 |---------|--------------|----------------------|
-| Entidade de domínio (`.entity.ts`) | `src/domain/<contexto>/` | qualquer outro lugar |
-| Value Object (`.value-object.ts`) | `src/domain/<contexto>/` | qualquer outro lugar |
-| Domain Event (`.events.ts`) | `src/domain/<contexto>/` | qualquer outro lugar |
-| Erro de domínio (`.errors.ts`) | `src/domain/<contexto>/` | qualquer outro lugar |
-| Interface de repositório (`.repository.ts`) | `src/domain/<contexto>/` | `src/infrastructure/` |
-| Use Case (`.usecase.ts`) | `src/application/<contexto>/` | qualquer outro lugar |
-| Implementação de repositório (`.postgres.repository.ts`) | `src/infrastructure/database/repositories/` | `src/domain/` ou `src/application/` |
-| SQL nomeado (`.queries.ts`) | `src/infrastructure/database/queries/` | inline nos repositórios |
-| Controller (`.controller.ts`) | `src/interface-adapters/http/<contexto>/` | qualquer outra camada |
-| DTO de entrada/saída (`.dto.ts`) | `src/interface-adapters/http/<contexto>/` | `src/domain/` ou `src/application/` |
-| Módulo NestJS (`.module.ts`) | `src/interface-adapters/http/<contexto>/` ou `src/infrastructure/` | `src/domain/` ou `src/application/` |
+| Entidade de domínio (`.entity.ts`) | `src/modules/<ctx>/domain/` | qualquer outro lugar |
+| Value Object (`.value-object.ts`) | `src/modules/<ctx>/domain/` | qualquer outro lugar |
+| Domain Event (`.events.ts`) | `src/modules/<ctx>/domain/` | qualquer outro lugar |
+| Erro de domínio (`.errors.ts`) | `src/modules/<ctx>/domain/` | qualquer outro lugar |
+| Interface de repositório (`.repository.ts`) | `src/modules/<ctx>/domain/` | `src/modules/<ctx>/infrastructure/` |
+| Use Case (`.usecase.ts`) | `src/modules/<ctx>/application/` | qualquer outro lugar |
+| Implementação de repositório (`.repository.ts`) | `src/modules/<ctx>/infrastructure/persistence/` | `src/modules/<ctx>/domain/` ou `src/modules/<ctx>/application/` |
+| SQL nomeado (`.sql.ts`) | `src/modules/<ctx>/infrastructure/persistence/` | inline nos repositórios |
+| Controller (`.controller.ts`) | `src/modules/<ctx>/presentation/` | qualquer outra camada |
+| DTO de entrada/saída (`.dto.ts`) | `src/modules/<ctx>/presentation/` | `src/modules/<ctx>/domain/` ou `src/modules/<ctx>/application/` |
+| Módulo NestJS (`.module.ts`) | `src/modules/<ctx>/` ou `src/infrastructure/` | `src/modules/<ctx>/domain/` ou `src/modules/<ctx>/application/` |
 
 ---
 
@@ -152,13 +162,13 @@ Segundo `docs/architecture/03-estrutura-projeto.md`, cada tipo de artefato tem u
 - Conceitos como `Satoshi`, `BitcoinAddress`, `Email`, `KycStatus` estão modelados como Value Objects ou como primitivos espalhados pelo código?
 
 ### Abstract classes de repositório
-- A abstract class está em `src/domain/`, não em `src/infrastructure/`?
+- A abstract class está em `src/modules/<ctx>/domain/`, não em `src/modules/<ctx>/infrastructure/`?
 - O método retorna entidade de domínio (ou `null`) — nunca `boolean`, nunca DTO, nunca tipo do ORM?
 - Métodos de escrita retornam `void` (ou lançam exceção) — nunca `boolean` de sucesso/erro?
 - A implementação usa `extends`, não `implements`?
 
 ### Erros de domínio
-- Falhas de domínio são subclasses de `DomainError` (definida em `src/domain/shared/domain.error.ts`)?
+- Falhas de domínio são subclasses de `DomainError` (definida em `src/shared/domain.error.ts`)?
 - Nenhum repositório ou use case retorna `boolean` para indicar sucesso ou falha?
 - Nenhum repositório retorna `undefined` silenciosamente — usa `null` explícito ou lança `XxxNotFoundError`?
 
@@ -188,7 +198,7 @@ Segundo `docs/architecture/03-estrutura-projeto.md`:
 
 ## Passo 6 — Verificar SQL inline
 
-Segundo a arquitetura documentada, SQL deve ficar em `src/infrastructure/database/queries/`, nunca inline nos repositórios.
+Segundo a arquitetura documentada, SQL deve ficar em `src/modules/<ctx>/infrastructure/persistence/`, nunca inline nos repositórios.
 
 - Há strings SQL construídas diretamente nos métodos dos repositórios?
 - Template literals com SQL (`\`SELECT * FROM...\``) fora de `*.queries.ts`?
@@ -207,11 +217,11 @@ Se VIOLAÇÃO, liste cada infração:
 |---|--------------|-----------|-------------------|-------------------|----------------|-------------|
 
 **Severidade:**
-- **CRÍTICO** — camada interna importa camada externa (Regra de Dependência); lógica financeira ou de segurança em `src/admin/`; artefato na camada errada (ex: abstract class de repositório em `infrastructure/`); infraestrutura injetada em entidade; repositório usa `implements` em vez de `extends`
-- **ALTO** — regra de negócio em `src/admin/` (deveria estar em CA); use case com lógica de negócio; repositório retornando `boolean`; erro sem tipo (`DomainError`); construtor de use case recebendo implementação concreta
+- **CRÍTICO** — camada interna importa camada externa (Regra de Dependência); lógica financeira ou de segurança em módulo CRUD; artefato na camada errada (ex: abstract class de repositório em `infrastructure/`); infraestrutura injetada em entidade; repositório usa `implements` em vez de `extends`
+- **ALTO** — regra de negócio em módulo CRUD (deveria estar em CA); use case com lógica de negócio; repositório retornando `boolean`; erro sem tipo (`DomainError`); construtor de use case recebendo implementação concreta
 - **MÉDIO** — SQL inline em repositório CA; nomenclatura incorreta; Value Object modelado como entidade (ou vice-versa)
 - **BAIXO** — convenção de nomenclatura de classe; sufixo de arquivo ausente
-- **SUGESTÃO** (não bloqueante) — CRUD simples implementado em CA quando poderia estar em `src/admin/`
+- **SUGESTÃO** (não bloqueante) — CRUD simples implementado em CA quando poderia estar em simplificado dentro do módulo
 
 **Próximo passo:**
 - CONFORME → "Código respeita as regras de arquitetura documentadas."
@@ -222,4 +232,4 @@ Se VIOLAÇÃO, liste cada infração:
 ## Limitações
 - Valida regras de **arquitetura e estrutura**. Regras financeiras são do `/ledger-guard`, regras de segurança são do `/security-guard`.
 - A análise de imports é estática — não detecta violações em tempo de execução (ex: injeção via container que burla as interfaces).
-- Se o projeto ainda não implementou `src/domain/` (está em bootstrap), muitas regras serão N/A — ajuste o escopo da análise ao que já existe.
+- Se o projeto ainda não implementou módulos CA (está em bootstrap), muitas regras serão N/A — ajuste o escopo da análise ao que já existe.
