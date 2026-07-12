@@ -32,8 +32,8 @@ Identifique o bounded context da tarefa e leia os documentos correspondentes:
 | Contexto | Documentos a ler |
 |----------|----------------|
 | Identidade / autenticação / KYC | `docs/bussiness/02-identidade-e-acesso.md` + `docs/adr/0002-schema-identidade-kyc.md` |
-| Financeiro / ledger / saldo | `docs/bussiness/04-carteiras-e-ledger-financeiro.md` + `docs/adr/0003-schema-financeiro-ledger-bitcoin.md` + `docs/adr/0001-atomic-transactions.md` |
-| Bitcoin / depósito / saque on-chain | `docs/bussiness/09-depositos-e-saques.md` + `docs/adr/0003-schema-financeiro-ledger-bitcoin.md` |
+| Financeiro / ledger / saldo | `docs/bussiness/04-carteiras-e-ledger-financeiro.md` + `docs/adr/0001-unit-of-work-pattern.md` |
+| Bitcoin / depósito / saque on-chain | `docs/bussiness/09-depositos-e-saques.md` |
 | Order book / matching / trades | `docs/bussiness/05-mercados-de-negociacao.md` + `docs/bussiness/06-order-book.md` + `docs/bussiness/07-matching-engine.md` + `docs/bussiness/08-trades-maker-taker-taxas.md` |
 | Admin / configuração | `docs/architecture/04-quando-usar-clean-architecture.md` |
 | Qualquer contexto | `docs/bussiness/11-invariantes-globais.md` (invariantes que se aplicam a tudo) |
@@ -55,7 +55,7 @@ Aplique o critério de `docs/architecture/04-quando-usar-clean-architecture.md`:
 - Toca Bitcoin on-chain (transações, endereços, confirmações)
 - Pode afetar múltiplos usuários ou produzir efeito colateral auditável
 
-**Abordagem simples (`src/admin/`)** se todos forem verdadeiros:
+**Abordagem simples** se todos forem verdadeiros:
 - CRUD puro sem regra de negócio
 - Não afeta saldo, segurança ou Bitcoin
 - Operação administrativa ou de configuração
@@ -70,33 +70,33 @@ Aplique o critério de `docs/architecture/04-quando-usar-clean-architecture.md`:
 Liste os artefatos na **ordem de implementação** (do interior para o exterior):
 
 ```
-DOMÍNIO (src/domain/<contexto>/)
+DOMÍNIO (src/modules/<contexto>/domain/)
   □ <entidade>.entity.ts            — se for entidade nova
   □ <conceito>.value-object.ts      — se for value object novo
   □ <nome>.errors.ts                — erros tipados que a tarefa introduz
   □ <nome>.events.ts                — domain events emitidos (se houver)
   □ <nome>.repository.ts            — interface *Repository (se persistir)
 
-APLICAÇÃO (src/application/<contexto>/)
+APLICAÇÃO (src/modules/<contexto>/application/)
   □ <nome>.usecase.ts               — o use case
 
-INFRAESTRUTURA (src/infrastructure/database/)
-  □ queries/<contexto>.queries.ts   — SQL nomeado (adicionar à constante existente ou criar)
-  □ repositories/<nome>.postgres.repository.ts  — implementação
-  □ migrations/<timestamp>_<descricao>.sql      — se há mudança de schema
+INFRAESTRUTURA (src/modules/<contexto>/infrastructure/persistence/)
+  □ <contexto>.sql.ts               — SQL nomeado
+  □ pg-<nome>.repository.ts         — implementação
+  □ migrations/<timestamp>_<descricao>.sql — se há mudança de schema (em src/infrastructure/database/migrations/)
 
-INTERFACE ADAPTERS (src/interface-adapters/http/<contexto>/)
+PRESENTATION (src/modules/<contexto>/presentation/)
   □ <nome>.dto.ts                   — DTO de entrada com class-validator
   □ <nome>.controller.ts            — endpoint(s)
   □ <contexto>.module.ts            — registrar no módulo (se necessário)
 
 TESTES
-  □ src/domain/<ctx>/<entidade>.entity.spec.ts
-  □ src/application/<ctx>/<nome>.usecase.spec.ts
-  □ src/infrastructure/database/repositories/<nome>.spec.ts
+  □ src/modules/<ctx>/domain/<entidade>.entity.spec.ts
+  □ src/modules/<ctx>/application/<nome>.usecase.spec.ts
+  □ src/modules/<ctx>/infrastructure/persistence/<nome>.spec.ts
 ```
 
-### Se abordagem simples (`src/admin/<recurso>/`):
+### Se abordagem simples (CRUD dentro do módulo):
 
 ```
   □ <recurso>.dto.ts                — validação de entrada
@@ -105,7 +105,7 @@ TESTES
   □ <recurso>.module.ts
 
 TESTES
-  □ src/admin/<recurso>/<recurso>.service.spec.ts
+  □ src/modules/<ctx>/application/<recurso>.service.spec.ts
 ```
 
 ---
@@ -118,7 +118,7 @@ Para cada artefato listado, responda:
 - **Muda schema existente?** → precisa de migration + verificar dados já existentes
 - **Toca ledger?** → `/ledger-guard` obrigatório ao final
 - **Toca autenticação/KYC?** → `/security-guard` obrigatório ao final
-- **Cria arquivos em `src/domain/` ou `src/application/`?** → `/arch-guard` obrigatório ao final
+- **Cria arquivos em `src/modules/<ctx>/domain/` ou `src/modules/<ctx>/application/`?** → `/arch-guard` obrigatório ao final
 - **É operação multi-tabela?** → `UnitOfWork` é obrigatório no use case
 
 ---
@@ -169,24 +169,24 @@ Suposições que precisam de confirmação:
 ### Artefatos a criar (em ordem)
 
 **1. Domínio**
-- [ ] src/domain/<ctx>/<nome>.ts — <para que serve>
+- [ ] src/modules/<ctx>/domain/<nome>.ts — <para que serve>
 
 **2. Aplicação**
-- [ ] src/application/<ctx>/<nome>.usecase.ts — <o que orquestra>
+- [ ] src/modules/<ctx>/application/<nome>.usecase.ts — <o que orquestra>
 
 **3. Infraestrutura**
-- [ ] src/infrastructure/database/queries/<ctx>.queries.ts — <queries SQL>
-- [ ] src/infrastructure/database/repositories/<nome>.spec.ts
+- [ ] src/modules/<ctx>/infrastructure/persistence/<ctx>.sql.ts — <queries SQL>
+- [ ] src/modules/<ctx>/infrastructure/persistence/pg-<nome>.repository.ts — <implementação>
 - [ ] src/infrastructure/database/migrations/<ts>_<desc>.sql — <o que muda>
 
-**4. Interface**
-- [ ] src/interface-adapters/http/<ctx>/<nome>.dto.ts
-- [ ] src/interface-adapters/http/<ctx>/<nome>.controller.ts
+**4. Presentation**
+- [ ] src/modules/<ctx>/presentation/<nome>.dto.ts
+- [ ] src/modules/<ctx>/presentation/<nome>.controller.ts
 
 **5. Testes**
-- [ ] <arquivo>.entity.spec.ts — testar: <invariantes principais>
-- [ ] <arquivo>.usecase.spec.ts — testar: <caminho feliz + erros esperados>
-- [ ] <arquivo>.postgres.repository.spec.ts — testar: <persistência + bigint>
+- [ ] src/modules/<ctx>/domain/<nome>.entity.spec.ts — testar: <invariantes principais>
+- [ ] src/modules/<ctx>/application/<nome>.usecase.spec.ts — testar: <caminho feliz + erros esperados>
+- [ ] src/modules/<ctx>/infrastructure/persistence/pg-<nome>.repository.spec.ts — testar: <persistência + bigint>
 
 ### Guards a executar ao final
 - [ ] /arch-guard — verificar Regra de Dependência

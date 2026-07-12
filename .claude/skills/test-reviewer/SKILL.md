@@ -103,12 +103,12 @@ expect(found!.amountSatoshi).toBe(50_000n)
 
 ## Critério 5 — Separação unit / integração
 
-**Testes unitários (`.spec.ts` em `src/domain/` ou `src/application/`) NÃO devem:**
+**Testes unitários (`.spec.ts` em `src/modules/<ctx>/domain/` ou `src/modules/<ctx>/application/`) NÃO devem:**
 - Importar `DatabaseService`, `pg`, ou qualquer repositório concreto
 - Fazer queries SQL
 - Depender de banco de dados
 
-**Testes de integração (`.spec.ts` em `src/infrastructure/`) DEVEM:**
+**Testes de integração (`.spec.ts` em `src/modules/<ctx>/infrastructure/`) DEVEM:**
 - Usar `DatabaseService` real (não mockado)
 - Verificar persistência real no banco
 - Isolar com `BEGIN`/`ROLLBACK` por suite
