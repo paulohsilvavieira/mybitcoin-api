@@ -259,11 +259,11 @@ SQL construído inline dentro dos métodos dos repositórios TypeORM. Para opera
 
 **O que o mybitcoin-api já estabeleceu:**
 
-A pasta `src/database/queries/` foi criada exatamente para isso — SQL nomeado, separado da lógica de repositório.
+A pasta `src/modules/<ctx>/infrastructure/persistence/*.sql.ts` foi criada exatamente para isso — SQL nomeado, separado da lógica de repositório.
 
 ```typescript
-// infrastructure/database/queries/financial.queries.ts
-export const FINANCIAL_QUERIES = {
+// modules/financial/infrastructure/persistence/transaction.sql.ts
+export const TRANSACTION_QUERIES = {
   findTransactionById: `
     SELECT id, account_id, type, amount_satoshi, status, bitcoin_transaction_id, created_at
     FROM transactions

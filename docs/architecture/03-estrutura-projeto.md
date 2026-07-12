@@ -1,275 +1,608 @@
 # Estrutura do Projeto: mybitcoin-api
 
-**Objetivo:** Definir como o código deve ser organizado — onde cada coisa mora e por quê.
+## Objetivo
 
-Este documento parte dos princípios de `02-clean-architecture-ddd-fundamentos.md` e os traduz em estrutura de pastas e convenções concretas.
+Definir uma estrutura de projeto que combine:
 
----
+* **Clean Architecture**
+* **DDD (Domain-Driven Design)**
+* **NestJS**
+* **PostgreSQL (pg puro)**
 
-## Visão Geral
-
-O projeto é organizado em **dois eixos**:
-
-1. **Por camada** (a regra de dependência da Arquitetura Limpa)
-2. **Por domínio** (a separação de contextos do DDD)
-
-Nenhum dos dois eixos sozinho é suficiente. Organizar só por camada cria pastas enormes e genéricas. Organizar só por domínio dificulta enxergar onde as fronteiras arquiteturais estão.
+O objetivo é manter cada domínio autocontido, facilitar a evolução do sistema e reduzir o acoplamento entre módulos.
 
 ---
 
-## Estrutura de Pastas
+# Princípios
 
-```
+A organização do projeto segue quatro princípios fundamentais:
+
+1. **Organização por domínio (Bounded Context)**
+2. **Arquitetura Limpa dentro de cada domínio**
+3. **Infraestrutura compartilhada apenas para recursos comuns**
+4. **Cada módulo é dono da sua persistência**
+
+Isso significa que o projeto **não é organizado por camadas globais** (`domain/`, `application/`, `infrastructure/` na raiz), mas sim por **módulos de negócio**, onde cada módulo possui suas próprias camadas.
+
+---
+
+# Estrutura Geral
+
+```text
 src/
-├── domain/                         ← Núcleo do negócio. Zero dependências externas.
-│   ├── account/
-│   │   ├── account.entity.ts       ← Aggregate root
-│   │   ├── account.events.ts       ← Domain events: AccountCreated, AccountApproved
-│   │   ├── account.errors.ts       ← AccountNotFoundError, AccountSuspendedError
-│   │   ├── account.repository.ts   ← Interface AccountRepository
-│   │   └── kyc/
-│   │       ├── kyc-profile.entity.ts
-│   │       ├── kyc-document.entity.ts
-│   │       └── kyc.errors.ts
-│   │
-│   ├── financial/
-│   │   ├── transaction.entity.ts   ← Aggregate root
-│   │   ├── ledger-entry.entity.ts
-│   │   ├── withdrawal.entity.ts    ← Aggregate root
-│   │   ├── financial.events.ts     ← DepositConfirmed, WithdrawalBroadcast
-│   │   ├── financial.errors.ts     ← InsufficientBalanceError, WithdrawalPendingError
-│   │   ├── transaction.repository.ts
-│   │   ├── ledger-entry.repository.ts
-│   │   └── withdrawal.repository.ts
-│   │
-│   ├── bitcoin/
-│   │   ├── bitcoin-transaction.entity.ts
-│   │   ├── bitcoin-address.value-object.ts
-│   │   ├── satoshi.value-object.ts
-│   │   ├── bitcoin.events.ts       ← OnChainTxDetected, OnChainTxConfirmed
-│   │   ├── bitcoin.errors.ts
-│   │   └── bitcoin-transaction.repository.ts
-│   │
-│   └── shared/
-│       ├── domain.error.ts         ← Classe base para todos os erros de domínio
-│       ├── domain.event.ts         ← Interface base para domain events
-│       └── unit-of-work.interface.ts
 │
-├── application/                    ← Orquestração. Depende só do domínio.
-│   ├── account/
-│   │   ├── create-account.usecase.ts
-│   │   ├── submit-kyc.usecase.ts
-│   │   └── approve-kyc.usecase.ts
+├── infrastructure/
 │   │
-│   ├── financial/
-│   │   ├── request-withdrawal.usecase.ts
-│   │   ├── confirm-deposit.usecase.ts
-│   │   └── get-balance.usecase.ts  ← Calcula saldo via ledger
-│   │
-│   ├── bitcoin/
-│   │   ├── process-inbound-tx.usecase.ts
-│   │   └── broadcast-withdrawal.usecase.ts
-│   │
-│   └── shared/
-│       └── event-dispatcher.interface.ts
-│
-├── infrastructure/                 ← Implementações. Depende do domínio e de libs externas.
 │   ├── database/
-│   │   ├── database.module.ts      ← Já implementado (ADR 0001)
+│   │   ├── database.module.ts
 │   │   ├── database.service.ts
 │   │   ├── database.token.ts
 │   │   ├── transaction.ts
-│   │   ├── unit-of-work.postgres.ts ← Implementa UnitOfWork com DatabaseService
-│   │   ├── migrations/
-│   │   ├── queries/                 ← SQL nomeado, um arquivo por domínio
-│   │   │   ├── account.queries.ts
-│   │   │   ├── financial.queries.ts
-│   │   │   └── bitcoin.queries.ts
-│   │   └── repositories/
-│   │       ├── account.postgres.repository.ts
-│   │       ├── transaction.postgres.repository.ts
-│   │       ├── ledger-entry.postgres.repository.ts
-│   │       ├── withdrawal.postgres.repository.ts
-│   │       └── bitcoin-transaction.postgres.repository.ts
+│   │   ├── postgres.unit-of-work.ts
+│   │   └── migrations/
 │   │
 │   ├── bitcoin-rpc/
-│   │   ├── bitcoin-rpc.client.ts   ← Wrapper sobre chamadas ao nó Bitcoin
-│   │   └── bitcoin-rpc.module.ts
+│   │
+│   ├── telemetry/
 │   │
 │   ├── storage/
-│   │   ├── s3.storage.client.ts    ← Upload de documentos KYC
-│   │   └── storage.module.ts
 │   │
-│   └── telemetry/                  ← Já implementado (OpenTelemetry + Winston)
-│       ├── opentelemetry.config.ts
-│       ├── telemetry.logger.config.ts
-│       ├── telemetry.metric.service.ts
-│       └── telemetry.tracer.service.ts
-│
-├── interface-adapters/             ← Tradutores. Depende de application e domínio.
-│   ├── http/
-│   │   ├── account/
-│   │   │   ├── account.controller.ts
-│   │   │   ├── account.dto.ts      ← Request/Response DTOs
-│   │   │   └── account.module.ts
-│   │   │
-│   │   ├── financial/
-│   │   │   ├── financial.controller.ts
-│   │   │   ├── financial.dto.ts
-│   │   │   └── financial.module.ts
-│   │   │
-│   │   └── shared/
-│   │       ├── error-filter.ts     ← Mapeia DomainError → HTTP status
-│   │       └── auth.guard.ts
+│   ├── cache/
 │   │
-│   └── events/
-│       └── deposit-confirmed.handler.ts  ← Reage a domain events
+│   └── config/
 │
-└── app.module.ts                   ← Composição global de módulos
+├── modules/
+│
+│   ├── account/
+│   │
+│   ├── wallets/
+│   │
+│   ├── ledger/
+│   │
+│   ├── orders/
+│   │
+│   ├── trades/
+│   │
+│   ├── matching/
+│   │
+│   ├── bitcoin/
+│   │
+│   └── financial/
+│
+├── shared/
+│   ├── domain.error.ts
+│   └── unit-of-work.ts
+│
+└── app.module.ts
 ```
 
 ---
 
-## Por que essa divisão funciona
+# Estrutura de um módulo
 
-### `domain/` — O coração
+Cada módulo segue exatamente a mesma organização.
 
-Nenhum arquivo dentro de `domain/` pode importar de fora de `domain/`. Se você precisar checar: `grep -r "from '.*infrastructure\|.*application\|.*interface-adapters" src/domain/` deve retornar vazio.
+Exemplo:
 
-A subdivisão por contexto (`account/`, `financial/`, `bitcoin/`) reflete os Bounded Contexts do DDD. Cada contexto tem:
-- Entidades (com métodos de negócio)
-- Value Objects
-- Domain Events
-- Erros tipados
-- Interface de repositório
+```text
+orders/
+│
+├── domain/
+│
+├── application/
+│
+├── infrastructure/
+│
+├── presentation/
+│
+└── orders.module.ts
+```
 
-### `application/` — A orquestração
-
-Use cases moram aqui. Eles importam apenas de `domain/`. Nenhum use case importa de `infrastructure/` ou de `interface-adapters/`.
-
-Um use case tem no máximo:
-- Um construtor com interfaces de repositório e/ou event dispatcher
-- Um método `execute(input)` que retorna um output tipado
-- Lógica de orquestração sem regras de negócio (regras ficam nas entidades)
-
-### `infrastructure/` — Os detalhes
-
-Aqui mora PostgreSQL, Bitcoin RPC, S3. Esta camada **implementa** as interfaces definidas em `domain/`. O NestJS faz a injeção: onde `AccountRepository` é esperado, injeta `AccountPostgresRepository`.
-
-**queries/** merece atenção especial: SQL nomeado, não SQL inline no repositório. Isso facilita análise de performance, auditoria de queries e mudanças de schema — você sabe exatamente onde cada query mora.
-
-### `interface-adapters/` — Os tradutores
-
-Controllers NestJS ficam aqui. Eles:
-1. Recebem o request HTTP
-2. Validam o DTO de entrada (`class-validator`)
-3. Chamam o use case
-4. Retornam o resultado formatado
-
-O **error filter** é crítico: um `@Catch(DomainError)` global que inspeciona o tipo do erro e retorna o status HTTP correto. Isso centraliza o mapeamento de erros e remove `try/catch` dos controllers.
+Cada módulo é completamente independente dos demais.
 
 ---
 
-## Convenções de Nomenclatura
+# Domain
 
-### Arquivos
+Contém apenas regras de negócio.
 
-| Tipo | Sufixo | Exemplo |
-|------|--------|---------|
-| Entidade de domínio | `.entity.ts` | `account.entity.ts` |
-| Value Object | `.value-object.ts` | `satoshi.value-object.ts` |
-| Domain Event | `.events.ts` | `account.events.ts` |
-| Erros de domínio | `.errors.ts` | `financial.errors.ts` |
-| Abstract class de repositório | `.repository.ts` | `account.repository.ts` |
-| Implementação de repositório | `.postgres.repository.ts` | `account.postgres.repository.ts` |
-| Use Case | `.usecase.ts` | `create-account.usecase.ts` |
-| Controller | `.controller.ts` | `account.controller.ts` |
-| DTO | `.dto.ts` | `account.dto.ts` |
-| NestJS Module | `.module.ts` | `account.module.ts` |
+Nunca importa NestJS.
 
-### Classes
+Nunca importa PostgreSQL.
 
-- Abstract classes de repositório: `AccountRepository`, `TransactionRepository`
-- Implementações: `AccountPostgresRepository`
-- Use Cases: `CreateAccountUseCase`, `ConfirmDepositUseCase`
-- Erros de domínio: `AccountNotFoundError`, `InsufficientBalanceError`
-- Domain Events: `AccountCreated`, `DepositConfirmed` (substantivo no passado)
-- Value Objects: `Satoshi`, `BitcoinAddress`, `Email`
-- Entidades: `Account`, `Transaction`, `LedgerEntry`
+Nunca importa bibliotecas externas.
 
----
+Exemplo:
 
-## Módulos NestJS e Responsabilidade
+```text
+orders/
+└── domain
+    ├── entities
+    │   └── order.entity.ts
+    │
+    ├── value-objects
+    │   ├── order-id.vo.ts
+    │   └── price.vo.ts
+    │
+    ├── events
+    │   └── order-created.event.ts
+    │
+    ├── errors
+    │   └── insufficient-balance.error.ts
+    │
+    └── repositories
+        └── order.repository.ts
+```
 
-O NestJS é um detalhe de infraestrutura — ele cuida de injeção de dependências e ciclo de vida dos módulos. A estrutura de módulos espelha a estrutura de domínio:
+A pasta `repositories` contém apenas interfaces.
+
+Exemplo:
 
 ```typescript
-// src/interface-adapters/http/account/account.module.ts
-@Module({
-  imports: [DatabaseModule],
-  controllers: [AccountController],
-  providers: [
-    // Use case recebe a interface — NestJS injeta a implementação
-    {
-      provide: CreateAccountUseCase,
-      useFactory: (repo: AccountRepository) => new CreateAccountUseCase(repo),
-      inject: [AccountPostgresRepository],
-    },
-    AccountPostgresRepository,
-  ],
-})
-export class AccountModule {}
-```
+export abstract class OrderRepository {
 
-O `DatabaseModule` (já implementado) é `@Global()` — disponível em todos os módulos sem reimportar.
+    abstract create(order: Order): Promise<void>;
+
+    abstract findById(id: string): Promise<Order | null>;
+
+}
+```
 
 ---
 
-## Fluxo de uma Requisição
+# Application
 
-Para tornar concreto, o caminho de um depósito sendo confirmado:
+Contém os casos de uso.
 
-```
-Bitcoin RPC detecta transação
-         ↓
-BitcoinRpcClient (infrastructure/bitcoin-rpc/)
-  → notificação recebida via HTTP callback
-         ↓
-FinancialController (interface-adapters/http/financial/)
-  → valida DTO de entrada
-         ↓
-ProcessInboundTxUseCase (application/bitcoin/)
-  → busca BitcoinTransaction via IBitcoinTransactionRepository
-  → cria Transaction com status 'pending'
-  → persiste Transaction via TransactionRepository
-  → publica OnChainTxDetected event
-         ↓
-(quando N confirmações atingidas)
-ConfirmDepositUseCase (application/financial/)
-  → UnitOfWork.run():
-      → busca Transaction
-      → transaction.confirm(confirmations)
-      → persiste Transaction (status: completed)
-      → cria LedgerEntry credit
-      → persiste LedgerEntry
-  → publica DepositConfirmed event
-         ↓
-DepositConfirmedHandler (interface-adapters/events/)
-  → envia notificação push ao usuário
-  → (futuro) emite WebSocket
+É responsável por orquestrar o domínio.
+
+Não conhece SQL.
+
+Não conhece PostgreSQL.
+
+Não conhece NestJS.
+
+Exemplo:
+
+```text
+orders/
+└── application
+    ├── place-order.usecase.ts
+    ├── cancel-order.usecase.ts
+    ├── fill-order.usecase.ts
+    └── get-order.usecase.ts
 ```
 
-Cada seta é uma fronteira. O use case não sabe que existe NestJS. A entidade não sabe que existe PostgreSQL. O controller não sabe como o depósito é confirmado.
+Fluxo:
+
+```
+Controller
+
+↓
+
+UseCase
+
+↓
+
+Repository Interface
+```
 
 ---
 
-## O que fazer com o código atual
+# Infrastructure
 
-O projeto já tem boa base em:
-- `database/` — DatabaseModule, DatabaseService, Transaction (ADR 0001 implementado)
-- `telemetry/` — OpenTelemetry completo
-- ADRs documentando decisões de schema (0001, 0002, 0003)
+Implementa tudo que é detalhe técnico.
 
-O próximo passo é criar a estrutura de `domain/` para os três contextos identificados nos ADRs, depois `application/` com os use cases primários, depois `infrastructure/repositories/` implementando os contratos do domínio.
+Aqui ficam:
 
-A estrutura de pastas deve ser criada com base nas necessidades reais — não antecipadamente. Crie `domain/account/` quando for implementar a feature de Account. Não antes.
+* PostgreSQL
+* SQL
+* Mappers
+* Integrações
+
+Exemplo:
+
+```text
+orders/
+└── infrastructure
+    ├── persistence
+    │
+    │   ├── pg-order.repository.ts
+    │
+    │   ├── order.mapper.ts
+    │
+    │   └── order.sql.ts
+    │
+    └── events
+```
+
+---
+
+## Repositories
+
+As implementações pertencem ao módulo.
+
+Exemplo:
+
+```text
+orders/
+    infrastructure/
+        persistence/
+            pg-order.repository.ts
+```
+
+e **não**
+
+```text
+infrastructure/
+    database/
+        repositories/
+```
+
+Motivo:
+
+`PgOrderRepository` implementa regras de persistência do domínio **Orders**, não da infraestrutura global.
+
+---
+
+## SQL
+
+As queries SQL pertencem ao módulo.
+
+Exemplo:
+
+```text
+orders/
+    infrastructure/
+        persistence/
+            order.sql.ts
+```
+
+e não:
+
+```text
+infrastructure/
+    database/
+        queries/
+```
+
+Cada módulo é responsável pelas suas próprias consultas.
+
+Isso facilita:
+
+* manutenção
+* versionamento
+* otimização
+* auditoria
+
+---
+
+# Presentation
+
+Responsável apenas pela comunicação externa.
+
+Exemplo:
+
+```text
+orders/
+└── presentation
+    ├── orders.controller.ts
+    ├── orders.dto.ts
+    └── orders.module.ts
+```
+
+Responsabilidades:
+
+* receber requisições
+* validar DTOs
+* chamar Use Cases
+* retornar respostas
+
+Nenhuma regra de negócio deve existir aqui.
+
+---
+
+# Infrastructure Global
+
+A infraestrutura compartilhada contém apenas recursos reutilizáveis por toda aplicação.
+
+```text
+infrastructure/
+│
+├── database
+├── telemetry
+├── cache
+├── bitcoin-rpc
+├── storage
+└── config
+```
+
+Ela **não conhece nenhum domínio**.
+
+Por exemplo, o módulo `database` sabe apenas:
+
+* abrir conexões
+* iniciar transações
+* executar queries
+* gerenciar Pool
+* fornecer UnitOfWork
+
+Ele nunca sabe que existe uma tabela `orders`.
+
+---
+
+# Unit Of Work
+
+Existe apenas uma implementação.
+
+```text
+infrastructure/database
+    postgres.unit-of-work.ts
+```
+
+Ela é utilizada por qualquer módulo que precise executar operações transacionais.
+
+Fluxo:
+
+```
+UseCase
+
+↓
+
+UnitOfWork
+
+↓
+
+Repositories
+
+↓
+
+Commit / Rollback
+```
+
+---
+
+# DatabaseModule
+
+O `DatabaseModule` é responsável por fornecer:
+
+* DatabaseService
+* UnitOfWork
+* conexão PostgreSQL
+* gerenciamento de transações
+
+Ele não possui:
+
+* repositories
+* queries
+* mappers
+
+Esses pertencem aos módulos.
+
+---
+
+# Exemplo completo
+
+```text
+modules
+└── orders
+    │
+    ├── domain
+    │   ├── entities
+    │   ├── repositories
+    │   ├── value-objects
+    │   ├── events
+    │   └── errors
+    │
+    ├── application
+    │   ├── place-order.usecase.ts
+    │   ├── cancel-order.usecase.ts
+    │   └── get-order.usecase.ts
+    │
+    ├── infrastructure
+    │   └── persistence
+    │       ├── pg-order.repository.ts
+    │       ├── order.mapper.ts
+    │       └── order.sql.ts
+    │
+    ├── presentation
+    │   ├── orders.controller.ts
+    │   └── orders.dto.ts
+    │
+    └── orders.module.ts
+```
+
+---
+
+# Fluxo de uma requisição
+
+```
+HTTP Request
+
+↓
+
+Controller
+
+↓
+
+UseCase
+
+↓
+
+OrderRepository (Interface)
+
+↓
+
+PgOrderRepository
+
+↓
+
+DatabaseService
+
+↓
+
+PostgreSQL
+```
+
+Quando houver transação:
+
+```
+HTTP Request
+
+↓
+
+Controller
+
+↓
+
+UseCase
+
+↓
+
+UnitOfWork
+
+↓
+
+Repositories
+
+↓
+
+DatabaseService
+
+↓
+
+PostgreSQL
+
+↓
+
+Commit / Rollback
+```
+
+---
+
+# Organização da Persistência
+
+A responsabilidade da persistência fica distribuída por domínio.
+
+| Domínio | Repository            | SQL              |
+| ------- | --------------------- | ---------------- |
+| Orders  | `PgOrderRepository`   | `order.sql.ts`   |
+| Wallets | `PgWalletRepository`  | `wallet.sql.ts`  |
+| Ledger  | `PgLedgerRepository`  | `ledger.sql.ts`  |
+| Bitcoin | `PgBitcoinRepository` | `bitcoin.sql.ts` |
+
+Não existe uma pasta global contendo todas as queries ou todos os repositórios.
+
+---
+
+# Diagrama de Dependências
+
+```mermaid
+graph TD
+    subgraph "Presentation"
+        Controller[Controller]
+        DTO[DTO]
+    end
+
+    subgraph "Application"
+        UseCase[UseCase]
+    end
+
+    subgraph "Domain"
+        Entity[Entity]
+        RepoAbstract["Repository<br/>(abstract)"]
+        Error[DomainError]
+    end
+
+    subgraph "Infrastructure - Module"
+        PgRepo["PgRepository<br/>(concrete)"]
+        SQL["*.sql.ts"]
+    end
+
+    subgraph "Infrastructure - Shared"
+        UOW["UnitOfWork<br/>(abstract)"]
+        QE["QueryExecutor<br/>(interface)"]
+        DBS[DatabaseService]
+        TX[Transaction]
+    end
+
+    subgraph "Infrastructure - Global"
+        DBModule[DatabaseModule]
+        Pool[(PostgreSQL)]
+    end
+
+    Controller -->|calls| UseCase
+    Controller -->|uses| DTO
+    UseCase -->|uses| RepoAbstract
+    UseCase -->|uses| UOW
+    UseCase -->|throws| Error
+
+    UOW -->|creates| PgRepo
+    UOW -->|delegates| DBS
+
+    PgRepo -->|extends| RepoAbstract
+    PgRepo -->|implements| QE
+    PgRepo -->|queries| SQL
+
+    DBModule -->|provides| DBS
+    DBModule -->|provides| UOW
+    DBS -->|wraps| Pool
+    DBS -->|creates| TX
+    TX -->|implements| QE
+    DBS -->|implements| QE
+
+    style Controller fill:#4CAF50,color:#fff
+    style UseCase fill:#2196F3,color:#fff
+    style Entity fill:#FF9800,color:#fff
+    style RepoAbstract fill:#FF9800,color:#fff
+    style PgRepo fill:#9C27B0,color:#fff
+    style UOW fill:#607D8B,color:#fff
+    style QE fill:#607D8B,color:#fff
+    style DBS fill:#607D8B,color:#fff
+```
+
+### Legenda
+
+| Cor | Camada |
+|-----|--------|
+| Verde | Presentation |
+| Azul | Application |
+| Laranja | Domain |
+| Roxo | Infrastructure (dentro do módulo) |
+| Cinza | Infrastructure (compartilhada) |
+
+### Fluxo de uma requisição (com UnitOfWork)
+
+```
+HTTP Request
+    ↓
+Controller (presentation/)
+    ↓
+UseCase (application/)
+    ↓
+UnitOfWork (infrastructure/shared/)
+    ↓
+PgRepository (infrastructure/persistence/) ← dentro do módulo
+    ↓
+QueryExecutor (interface)
+    ↓
+Transaction (dentro de runInTransaction)
+    ↓
+PostgreSQL
+    ↓
+Commit / Rollback
+```
+
+---
+
+# Benefícios dessa organização
+
+* Cada módulo é autocontido.
+* A navegação pelo código fica mais simples.
+* O domínio não depende da infraestrutura.
+* O SQL permanece próximo do código que o utiliza.
+* A infraestrutura compartilhada permanece genérica.
+* A troca de tecnologia de persistência impacta apenas o módulo correspondente.
+* A arquitetura escala naturalmente conforme novos domínios são adicionados (Matching, OTC, Settlement, Futures, etc.).
+
+Essa organização é especialmente adequada para sistemas financeiros e exchanges, onde cada contexto de negócio evolui de forma relativamente independente e possui regras de persistência próprias.
