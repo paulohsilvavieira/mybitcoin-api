@@ -104,7 +104,18 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.ts",
+      "!**/*.module.ts",
+      "!**/*.dto.ts",
+      "!**/*.sql.ts",
+      "!**/database.provider.ts",
+      "!**/query-executor.ts",
+      "!**/database.token.ts",
+      "!**/scripts/**",
+      "!**/telemetry/**",
+      "!**/main.ts",
+      "!**/*.spec.ts",
+      "!**/domain/*.repository.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
