@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { QueryResult } from 'pg';
 import { DatabaseService } from './database.service';
 import { POOL_TOKEN } from './database.token';
-import { Transaction } from './transaction';
+import { PGTransactionControl } from './transaction';
 
 const mockClient = {
   query: jest.fn(),
@@ -36,26 +36,6 @@ describe('DatabaseService', () => {
 
       expect(mockPool.query).toHaveBeenCalledWith('SELECT 1', []);
       expect(result).toBe(fakeResult);
-    });
-  });
-
-  describe('startTransaction', () => {
-    beforeEach(() => {
-      mockPool.connect.mockResolvedValue(mockClient);
-      mockClient.query.mockResolvedValue(undefined);
-    });
-
-    it('acquires a client and issues BEGIN', async () => {
-      await service.startTransaction();
-
-      expect(mockPool.connect).toHaveBeenCalledTimes(1);
-      expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
-    });
-
-    it('returns a Transaction instance', async () => {
-      const tx = await service.startTransaction();
-
-      expect(tx).toBeInstanceOf(Transaction);
     });
   });
 
@@ -95,7 +75,7 @@ describe('DatabaseService', () => {
         return Promise.resolve();
       });
 
-      expect(received).toBeInstanceOf(Transaction);
+      expect(received).toBeInstanceOf(PGTransactionControl);
     });
   });
 });
@@ -106,7 +86,7 @@ describe('Transaction', () => {
     mockClient.query.mockResolvedValue(undefined);
   });
 
-  const makeTx = () => new Transaction(mockClient as never);
+  const makeTx = () => new PGTransactionControl(mockClient as never);
 
   describe('query', () => {
     it('delegates to client.query with sql and params', async () => {

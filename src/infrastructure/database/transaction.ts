@@ -1,6 +1,7 @@
 import { PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { QueryExecutor } from './query-executor';
 
-export class Transaction {
+export class PGTransactionControl implements QueryExecutor {
   constructor(private readonly client: PoolClient) {}
 
   query<T extends QueryResultRow = QueryResultRow>(
