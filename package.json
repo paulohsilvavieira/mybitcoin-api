@@ -19,9 +19,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prepare": "husky",
-    "migration:create": "ts-node --project tsconfig.scripts.json ./src/database/scripts/create-migration.script.ts",
-    "migration:run": "ts-node --project tsconfig.scripts.json ./src/database/scripts/run-migration.script.ts",
-    "migration:dry-run": "DRY_RUN=true ts-node --project tsconfig.scripts.json s./src/database/scripts/run-migration.script.ts"
+    "migration:create": "ts-node --project tsconfig.scripts.json ./src/infrastructure/database/scripts/create-migration.script.ts",
+    "migration:run": "ts-node --project tsconfig.scripts.json ./src/infrastructure/database/scripts/run-migration.script.ts",
+    "migration:dry-run": "DRY_RUN=true ts-node --project tsconfig.scripts.json ./src/infrastructure/database/scripts/run-migration.script.ts"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.3",

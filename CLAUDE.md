@@ -28,38 +28,48 @@ Este projeto usa **Clean Architecture + DDD**. A documentação de referência e
 - `03-estrutura-projeto.md` — estrutura concreta de pastas e convenções de nomenclatura
 - `04-quando-usar-clean-architecture.md` — critério para CA vs abordagem simples
 
-**NÃO use CA para tudo.** CRUD administrativo (cadastrar moedas, criar pares de mercado) vai em `src/admin/`. A regra: se falha no código pode causar perda financeira ou acesso não autorizado → CA. Caso contrário → `src/admin/`.
-
 ### Estrutura de pastas
 
 ```
 src/
-├── domain/              ← entidades, value objects, interfaces *Repository, erros tipados
-├── application/         ← use cases (orquestram domínio, não têm lógica própria)
-├── infrastructure/      ← implementações de repositórios, DatabaseService, migrations
-│   └── database/
-│       ├── repositories/   ← *Postgres.repository.ts
-│       ├── queries/         ← SQL nomeado em constantes
-│       ├── migrations/      ← arquivos .sql numerados
-│       └── scripts/         ← migration runner, create-migration
-├── interface-adapters/  ← controllers, DTOs, módulos NestJS
-│   └── http/
-└── admin/               ← CRUD simples (Controller → Service → DatabaseService)
+├── infrastructure/              ← infraestrutura compartilhada (DatabaseService, migrations, telemetry)
+│   ├── database/
+│   │   ├── database.module.ts
+│   │   ├── database.service.ts
+│   │   ├── unit-of-work.postgres.ts
+│   │   └── migrations/
+│   └── telemetry/
+├── modules/                     ← módulos de negócio, cada um com suas próprias camadas CA
+│   └── <contexto>/
+│       ├── domain/              ← entidades, value objects, interfaces *Repository, erros
+│       ├── application/         ← use cases
+│       ├── infrastructure/      ← implementações de repositórios, SQL
+│       │   └── persistence/
+│       │       ├── pg-*.repository.ts
+│       │       └── *.sql.ts
+│       ├── presentation/        ← controllers, DTOs, módulos NestJS
+│       └── <contexto>.module.ts
+├── shared/                      ← artefatos de domínio compartilhados entre módulos
+│   ├── domain.error.ts
+│   └── unit-of-work.ts
+└── app.module.ts
 ```
+
+Cada módulo é autocontido. O detalhe completo está em `docs/architecture/03-estrutura-projeto.md`.
 
 ### Regra de Dependência
 
-Dependências só apontam para dentro:
+Dentro de cada módulo, dependências só apontam para dentro:
 
 ```
-interface-adapters → application → domain
-infrastructure    → domain
+presentation → application → domain
+infrastructure (do módulo) → domain
 ```
 
-`src/domain/` nunca importa nenhuma outra camada. Verifique com:
+`<módulo>/domain/` nunca importa de `application/`, `infrastructure/` ou `presentation/`. Verifique com:
 
 ```bash
-grep -r "from '.*application\|from '.*infrastructure\|from '.*interface-adapters" src/domain/
+grep -r "from '.*application\|from '.*infrastructure\|from '.*presentation" src/modules/*/domain/
 ```
 
 ---
@@ -97,24 +107,22 @@ return { success: false, error: 'Saldo insuficiente' }
 Operações que escrevem em mais de uma tabela DEVEM usar `UnitOfWork`. Nunca queries manuais em transações sequenciais sem garantia de rollback.
 
 ```typescript
-await this.uow.run(async ({ transactionRepository, ledgerRepository }) => {
-  await transactionRepository.save(tx)
-  await ledgerRepository.save(debit)
-  await ledgerRepository.save(credit)
+await this.uow.run(async ({ transactionRepo, ledgerRepo }) => {
+  await transactionRepo.save(tx)
+  await ledgerRepo.save(debit)
+  await ledgerRepo.save(credit)
 })
 ```
 
-### SQL — nunca inline nos repositórios CA
+### SQL — nunca inline nos repositórios
 
-SQL fica em `src/infrastructure/database/queries/*.queries.ts` como constantes nomeadas. Repositórios importam e usam essas constantes.
-
-**Exceção:** `src/admin/` pode ter SQL inline no próprio service.
+SQL fica em `src/modules/<contexto>/infrastructure/persistence/*.sql.ts` como constantes nomeadas. Repositórios importam e usam essas constantes.
 
 ### Repositórios
 
-- **Abstract class** em `src/domain/<contexto>/<nome>.repository.ts` — sem prefixo: `TransactionRepository` (não `ITransactionRepository`)
-- **Implementação** em `src/infrastructure/database/repositories/<nome>.postgres.repository.ts` — usa `extends`: `class TransactionPostgresRepository extends TransactionRepository`
-- No módulo NestJS: `{ provide: TransactionRepository, useClass: TransactionPostgresRepository }`
+- **Abstract class** em `src/modules/<contexto>/domain/<nome>.repository.ts` — sem prefixo: `TransactionRepository` (não `ITransactionRepository`)
+- **Implementação** em `src/modules/<contexto>/infrastructure/persistence/pg-<nome>.repository.ts` — usa `extends`: `class PgTransactionRepository extends TransactionRepository`
+- No módulo NestJS: `{ provide: TransactionRepository, useFactory: (db) => new PgTransactionRepository(db), inject: [DatabaseService] }`
 - Métodos `find*` retornam entidade de domínio ou `null` — nunca `undefined`, nunca `boolean`
 - Métodos `save`/`delete` retornam `void` — nunca `boolean`
 
@@ -141,13 +149,11 @@ Em `docs/bussiness/` — estes são os documentos que as skills leem como "lei":
 
 ## ADRs
 
-Em `docs/adr/` — decisões arquiteturais já tomadas:
+Em `docs/adr/` — decisões arquiteturais já tomadas (ADRs antigos em `docs/old-adrs/`):
 
 | ADR | Decisão |
 |-----|---------|
-| `0001-atomic-transactions.md` | Padrão UnitOfWork para atomicidade |
-| `0002-schema-identidade-kyc.md` | Schema de accounts, kyc_profiles, kyc_documents |
-| `0003-schema-financeiro-ledger-bitcoin.md` | Schema de transactions, ledger_entries, bitcoin_transactions |
+| `0001-unit-of-work-pattern.md` | Padrão UnitOfWork para atomicidade (UnitOfWork abstrato + implementação Postgres) |
 
 ---
 
@@ -236,6 +242,6 @@ Nunca implemente código que toque ledger sem ler `docs/bussiness/04-carteiras-e
 - **Não use `number` para valores financeiros** — apenas `bigint`
 - **Não retorne `boolean` de repositório** — lance `DomainError` tipado
 - **Não coloque SQL inline em repositórios de CA** — use `*.queries.ts`
-- **Não importe infraestrutura em `src/domain/`** — violação da Regra de Dependência
+- **Não importe infraestrutura em `src/modules/*/domain/`** — violação da Regra de Dependência
 - **Não processe operação financeira sem verificar KYC** — veja `docs/bussiness/02-identidade-e-acesso.md`
 - **Não faça múltiplos writes sem `UnitOfWork`** — risco de estado parcial
