@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { initializeOpenTelemetry } from './telemetry/opentelemetry.config';
-import { TelemetryLoggerConfig } from './telemetry/telemetry.logger.config';
+import { initializeOpenTelemetry } from './infrastructure/telemetry/opentelemetry.config';
+import { TelemetryLoggerConfig } from './infrastructure/telemetry/telemetry.logger.config';
 initializeOpenTelemetry();
 async function bootstrap() {
   const logger = new TelemetryLoggerConfig();
