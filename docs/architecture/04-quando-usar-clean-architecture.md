@@ -48,40 +48,23 @@ Clean Architecture tem um custo real: interfaces de repositório, use cases, inv
 Seguem a estrutura definida em `03-estrutura-projeto.md`:
 
 ```
-src/
-├── domain/           ← entidades, value objects, interfaces de repositório
-├── application/      ← use cases
-├── infrastructure/   ← implementações (banco, RPC, storage)
-└── interface-adapters/
-    └── http/         ← controllers, DTOs, módulos NestJS
+src/modules/<contexto>/
+├── domain/              ← entidades, value objects, interfaces de repositório
+├── application/         ← use cases
+├── infrastructure/      ← implementações (banco, RPC, storage)
+│   └── persistence/
+└── presentation/        ← controllers, DTOs, módulo NestJS
 ```
 
 ### Fluxos simples (CRUD administrativo)
-Ficam em `src/admin/`, organizados por recurso:
+Ficam dentro do módulo correspondente, mas com camadas simplificadas — sem abstract repository, sem use case separado:
 
 ```
-src/
-└── admin/
-    ├── currency/
-    │   ├── currency.controller.ts   ← recebe request, chama service, retorna response
-    │   ├── currency.service.ts      ← lógica trivial, chama DatabaseService diretamente
-    │   ├── currency.dto.ts          ← validação de entrada com class-validator
-    │   └── currency.module.ts
-    ├── market/
-    │   ├── market.controller.ts
-    │   ├── market.service.ts
-    │   ├── market.dto.ts
-    │   └── market.module.ts
-    └── admin.module.ts
+src/modules/<contexto>/
+├── application/         ← service direto (sem use case pattern)
+├── infrastructure/      ← SQL direto no service ou repositório simples
+└── presentation/        ← controller, DTOs, módulo NestJS
 ```
-
-**Regras para `src/admin/`:**
-- Controller → Service → `DatabaseService` (do `database.module.ts`)
-- Sem interface de repositório, sem use case separado
-- SQL nomeado em constantes no próprio arquivo de service ou em `queries/` dentro do módulo
-- DTO com `class-validator` obrigatório na entrada
-- `DatabaseService` injetado via construtor (não diretamente o pool)
-- Se a complexidade crescer e o fluxo começar a tocar regras de negócio → migrar para Clean Architecture
 
 ---
 
