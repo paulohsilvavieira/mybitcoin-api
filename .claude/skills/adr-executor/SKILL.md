@@ -1,6 +1,6 @@
 ---
 name: adr-executor
-description: Executor de ADR (estágio 3 do pipeline). Skill MANUAL — invoque para IMPLEMENTAR um ADR já APROVADO (Status Aceito + Validação Estágio 2 = APROVA). Gatilhos válidos — (1) slash command /adr-executor; (2) usuário pede "implementar o ADR", "executar o ADR", "codar o que o ADR aprovou". Implementa na ordem correta (domain → application → infrastructure → interface-adapters), aplica os princípios de Clean Architecture e DDD, adiciona testes do plano do ADR, e PARA no gate humano antes de commitar. NÃO invocar automaticamente.
+description: Executor de ADR (estágio 3 do pipeline). Skill MANUAL — invoque para IMPLEMENTAR um ADR já APROVADO (Status Aceito + Validação Estágio 2 = APROVA). Gatilhos válidos — (1) slash command /adr-executor; (2) usuário pede "implementar o ADR", "executar o ADR", "codar o que o ADR aprovou". Implementa na ordem correta (domain → application → infrastructure → presentation), aplica os princípios de Clean Architecture e DDD, adiciona testes do plano do ADR, e PARA no gate humano antes de commitar. NÃO invocar automaticamente.
 ---
 
 # ADR Executor — mybitcoin-api
@@ -10,8 +10,8 @@ Você implementa um ADR **já aprovado**, seguindo estritamente o plano de imple
 ## Regras de ouro (inquebráveis)
 
 1. **Só executa ADR aprovado.** Se o ADR não está `Status: Aceito` com Validação Estágio 2 = APROVA, **PARE** e peça para rodar `/adr-validator` antes.
-2. **Ordem obrigatória:** domain → application → infrastructure → interface-adapters. Nunca ao contrário.
-3. **A Regra de Dependência é absoluta.** Nenhum arquivo em `domain/` ou `application/` pode importar de `infrastructure/` ou `interface-adapters/`. Se o ADR pede isso, **sinalize e pare**.
+2. **Ordem obrigatória:** domain → application → infrastructure → presentation. Nunca ao contrário.
+3. **A Regra de Dependência é absoluta.** Nenhum arquivo em `<ctx>/domain/` ou `<ctx>/application/` pode importar de `<ctx>/infrastructure/` ou `<ctx>/presentation/`. Se o ADR pede isso, **sinalize e pare**.
 4. **Dinheiro sempre em `bigint`.** Nenhum valor monetário em `number` ou `float`.
 5. **Erros tipados, nunca boolean.** Falhas de domínio são subclasses de `DomainError`.
 6. **Nunca use sub-agentes / Task tool.** Implemente inline.
@@ -31,7 +31,7 @@ Você implementa um ADR **já aprovado**, seguindo estritamente o plano de imple
 
 ## Passo 1 — Implementar na ordem correta
 
-### 1. Domínio (`src/domain/<contexto>/`)
+### 1. Domínio (`src/modules/<contexto>/domain/`)
 
 Para cada entidade/value object/event/erro do ADR:
 - Crie a entidade com métodos de negócio (sem dependências de infra no construtor).
@@ -40,39 +40,39 @@ Para cada entidade/value object/event/erro do ADR:
 - Crie erros tipados: `class XxxNotFoundError extends DomainError`.
 - Crie a abstract class de repositório: `XxxRepository` (sem prefixo `I`) com retorno de entidades (nunca boolean). A implementação usará `extends XxxRepository`.
 
-### 2. Aplicação (`src/application/<contexto>/`)
+### 2. Aplicação (`src/modules/<contexto>/application/`)
 
 Para cada use case do ADR:
-- Recebe abstract classes de repositório e `UnitOfWork` no construtor — nunca implementações concretas (ex: `TransactionRepository`, nunca `TransactionPostgresRepository`).
+- Recebe abstract classes de repositório e `UnitOfWork` no construtor — nunca implementações concretas (ex: `TransactionRepository`, nunca `PgTransactionRepository`).
 - Método `execute(input: XxxInput): Promise<XxxOutput>`.
 - Orquestra entidades; regras de negócio ficam nas entidades, não aqui.
-- Operações multi-tabela envolvidas em `this.uow.run(async (uow) => { ... })`.
+- Operações multi-tabela envolvidas em `this.uow.run(async (repos) => { ... })`.
 
-### 3. Infraestrutura (`src/infrastructure/`)
+### 3. Infraestrutura (`src/modules/<contexto>/infrastructure/`)
 
 Para cada repositório/migration do ADR:
 - Crie a migration SQL em `src/infrastructure/database/migrations/` (nome: `<timestamp>_<slug>.sql`).
-- Crie as queries SQL em `src/infrastructure/database/queries/<contexto>.queries.ts` (SQL nomeado, não inline).
-- Implemente o repositório: `class XxxPostgresRepository implements IXxxRepository`.
+- Crie as queries SQL em `src/modules/<contexto>/infrastructure/persistence/<contexto>.sql.ts` (SQL nomeado, não inline).
+- Implemente o repositório em `src/modules/<contexto>/infrastructure/persistence/pg-<nome>.repository.ts`: `class PgXxxRepository extends XxxRepository`.
   - `toDomain(row)` — converte linha do banco → entidade de domínio.
   - `toRow(entity)` — converte entidade → parâmetros SQL.
   - Valores monetários: `BigInt(row.amount_satoshi)` na entrada, `.toString()` na saída para o SQL.
 
-### 4. Interface Adapters (`src/interface-adapters/http/<contexto>/`)
+### 4. Presentation (`src/modules/<contexto>/presentation/`)
 
 Para cada endpoint do ADR:
 - Controller NestJS recebe o use case via injeção de dependência.
 - DTO de entrada validado com `class-validator`.
 - DTO de saída converte valores de domínio para representação HTTP.
 - Error filter global já cuida do mapeamento `DomainError → HTTP status` (não precisa de try/catch individual).
-- Registre o novo módulo em `src/interface-adapters/http/<contexto>/<contexto>.module.ts`.
+- Registre o novo módulo em `src/modules/<contexto>/<contexto>.module.ts`.
 
 ## Passo 2 — Adicionar testes
 
 Para cada cenário do Plano de Teste do ADR:
-- **Testes de entidade** (`src/domain/<contexto>/<entidade>.entity.spec.ts`): regras de negócio, edge cases, erros tipados.
-- **Testes de use case** (`src/application/<contexto>/<usecase>.usecase.spec.ts`): mock dos repositórios, cenários de sucesso e falha.
-- **Testes de integração** (`src/infrastructure/database/repositories/<repositório>.spec.ts`): banco real, transação real.
+- **Testes de entidade** (`src/modules/<contexto>/domain/<entidade>.entity.spec.ts`): regras de negócio, edge cases, erros tipados.
+- **Testes de use case** (`src/modules/<contexto>/application/<usecase>.usecase.spec.ts`): mock dos repositórios, cenários de sucesso e falha.
+- **Testes de integração** (`src/modules/<contexto>/infrastructure/persistence/<repositório>.spec.ts`): banco real, transação real.
 
 ## Passo 3 — Auto-verificação
 
@@ -80,7 +80,7 @@ Para cada cenário do Plano de Teste do ADR:
 - Rode `pnpm lint` — sem erros de lint.
 - Cheque a Regra de Dependência manualmente:
   ```bash
-  grep -r "from '.*infrastructure\|from '.*interface-adapters" src/domain/ src/application/
+  grep -r "from '.*infrastructure\|from '.*presentation" src/modules/*/domain/ src/modules/*/application/
   ```
   O resultado deve ser vazio. Se não for, corrija antes de reportar.
 

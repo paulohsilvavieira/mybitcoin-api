@@ -61,7 +61,7 @@ tabela_nome (
 
 ## Checklist de Arquitetura (OBRIGATÓRIO)
 
-- [ ] Nenhum arquivo em `domain/` importa de `infrastructure/` ou `interface-adapters/`
+- [ ] Nenhum arquivo em `<ctx>/domain/` importa de `<ctx>/infrastructure/` ou `<ctx>/presentation/`
 - [ ] Valores monetários usam `BIGINT` no banco e `bigint` no TypeScript
 - [ ] Erros de domínio são subclasses de `DomainError` (nunca boolean de retorno)
 - [ ] Operações multi-tabela usam `UnitOfWork` (ADR 0001)
@@ -71,16 +71,16 @@ tabela_nome (
 
 ## Plano de Implementação (OBRIGATÓRIO — na ordem)
 
-### 1. Domínio (`src/domain/`)
+### 1. Domínio (`src/modules/<contexto>/domain/`)
 - [ ] <passo> — `arquivo`
 
-### 2. Aplicação (`src/application/`)
+### 2. Aplicação (`src/modules/<contexto>/application/`)
 - [ ] <passo> — `arquivo`
 
-### 3. Infraestrutura (`src/infrastructure/`)
+### 3. Infraestrutura (`src/modules/<contexto>/infrastructure/`)
 - [ ] <passo> — `arquivo` (migration, repositório, etc.)
 
-### 4. Interface Adapters (`src/interface-adapters/`)
+### 4. Presentation (`src/modules/<contexto>/presentation/`)
 - [ ] <passo> — `arquivo` (controller, DTO, etc.)
 
 ---

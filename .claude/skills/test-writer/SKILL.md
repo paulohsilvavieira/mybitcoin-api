@@ -24,11 +24,10 @@ Controllers e serviços admin têm testes unitários simples com `supertest` ou 
 
 | Artefato | Local do teste |
 |---------|---------------|
-| `src/domain/<ctx>/<entidade>.entity.ts` | `src/domain/<ctx>/<entidade>.entity.spec.ts` |
-| `src/application/<ctx>/<usecase>.usecase.ts` | `src/application/<ctx>/<usecase>.usecase.spec.ts` |
-| `src/infrastructure/database/repositories/<repo>.ts` | `src/infrastructure/database/repositories/<repo>.spec.ts` |
-| `src/interface-adapters/http/<ctx>/<ctrl>.controller.ts` | `src/interface-adapters/http/<ctx>/<ctrl>.controller.spec.ts` |
-| `src/admin/<ctx>/<service>.service.ts` | `src/admin/<ctx>/<service>.service.spec.ts` |
+| `src/modules/<ctx>/domain/<entidade>.entity.ts` | `src/modules/<ctx>/domain/<entidade>.entity.spec.ts` |
+| `src/modules/<ctx>/application/<usecase>.usecase.ts` | `src/modules/<ctx>/application/<usecase>.usecase.spec.ts` |
+| `src/modules/<ctx>/infrastructure/persistence/<repo>.ts` | `src/modules/<ctx>/infrastructure/persistence/<repo>.spec.ts` |
+| `src/modules/<ctx>/presentation/<ctrl>.controller.ts` | `src/modules/<ctx>/presentation/<ctrl>.controller.spec.ts` |
 
 ---
 
@@ -37,7 +36,7 @@ Controllers e serviços admin têm testes unitários simples com `supertest` ou 
 Entidades de domínio encapsulam invariantes. Os testes provam que as regras são cumpridas.
 
 ```typescript
-// src/domain/financial/transaction.entity.spec.ts
+// src/modules/financial/domain/transaction.entity.spec.ts
 
 import { Transaction, TransactionType, TransactionStatus } from './transaction.entity'
 import { InsufficientBalanceError } from './financial.errors'
@@ -105,7 +104,7 @@ describe('Transaction', () => {
 Use cases recebem interfaces mockadas. Nunca testam implementação concreta.
 
 ```typescript
-// src/application/financial/confirm-deposit.usecase.spec.ts
+// src/modules/financial/application/confirm-deposit.usecase.spec.ts
 
 import { ConfirmDepositUseCase } from './confirm-deposit.usecase'
 import { TransactionRepository } from '../../domain/financial/transaction.repository'
@@ -203,7 +202,7 @@ describe('ConfirmDepositUseCase', () => {
 Repositórios são testados com banco real. Nunca mocam `DatabaseService`.
 
 ```typescript
-// src/infrastructure/database/repositories/transaction.postgres.repository.spec.ts
+// src/modules/financial/infrastructure/persistence/pg-transaction.repository.spec.ts
 
 import { DatabaseService } from '../database.service'
 import { TransactionPostgresRepository } from './transaction.postgres.repository'
@@ -351,12 +350,12 @@ it('não processa operação em conta suspensa', async () => {
 
 ---
 
-## Testes para `src/admin/` (abordagem simples)
+## Testes para módulos CRUD (abordagem simples)
 
-Services admin são testados com mock de `DatabaseService`.
+Services CRUD são testados com mock de `DatabaseService`.
 
 ```typescript
-// src/admin/currency/currency.service.spec.ts
+// src/modules/currency/application/currency.service.spec.ts
 
 import { CurrencyService } from './currency.service'
 import { DatabaseService } from '../../database/database.service'
@@ -407,7 +406,7 @@ describe('CurrencyService', () => {
 
 ```bash
 pnpm test                                      # suite completa
-pnpm test -- src/domain/financial/             # só um contexto
+pnpm test -- src/modules/financial/         # só um contexto
 pnpm test -- --watch                           # watch mode
 pnpm test -- --coverage                        # cobertura
 pnpm test -- transaction.entity.spec.ts        # arquivo específico

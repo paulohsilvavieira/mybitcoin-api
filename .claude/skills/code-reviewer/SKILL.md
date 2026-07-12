@@ -7,15 +7,15 @@ description: Revisa código TypeScript do mybitcoin-api avaliando complexidade c
 
 Você avalia qualidade de código. Não elogie — sinalize apenas problemas reais. Responda **PASS** ou **ISSUES**.
 
-Antes de revisar, classifique o contexto do arquivo (CA ou `src/admin/`) — as tolerâncias variam por camada.
+Antes de revisar, classifique o contexto do arquivo (CA ou CRUD simples) — as tolerâncias variam por camada.
 
 ---
 
 ## Contexto do projeto
 
 - **Stack:** TypeScript 5.7, NestJS 11, Jest
-- **Camadas CA:** `src/domain/`, `src/application/`, `src/infrastructure/`, `src/interface-adapters/`
-- **Camada simples:** `src/admin/` — tolerâncias mais relaxadas
+- **Camadas CA:** `src/modules/<ctx>/domain/`, `src/modules/<ctx>/application/`, `src/modules/<ctx>/infrastructure/`, `src/modules/<ctx>/presentation/`
+- **Camada simples:** módulos CRUD — tolerâncias mais relaxadas
 - **Referência:** `docs/architecture/02-clean-architecture-ddd-fundamentos.md`, `docs/architecture/03-estrutura-projeto.md`
 
 ---
@@ -43,11 +43,11 @@ Cada branch independente adiciona +1: `if`, `else if`, `else`, `for`, `while`, `
 
 | Camada | Limite aceitável |
 |--------|----------------|
-| `src/domain/` — métodos de entidade/VO | ≤ 4 |
-| `src/application/` — `execute()` de use case | ≤ 6 |
-| `src/infrastructure/` — métodos de repositório | ≤ 5 |
-| `src/interface-adapters/` — métodos de controller | ≤ 4 |
-| `src/admin/` — service methods | ≤ 7 |
+| `src/modules/<ctx>/domain/` — métodos de entidade/VO | ≤ 4 |
+| `src/modules/<ctx>/application/` — `execute()` de use case | ≤ 6 |
+| `src/modules/<ctx>/infrastructure/` — métodos de repositório | ≤ 5 |
+| `src/modules/<ctx>/presentation/` — métodos de controller | ≤ 4 |
+| Módulo CRUD — service methods | ≤ 7 |
 
 **Como identificar:** conte mentalmente as bifurcações do método. Um método com `if` + `else if` + `catch` + `??` já tem complexidade 5.
 
@@ -313,4 +313,4 @@ arquivo.ts — linha 78:
 - Máximo 8 issues por arquivo — priorize os mais graves
 - Sempre indique o critério: `[C1]`, `[C3]`, etc.
 - Não invente problemas — só sinalize o que está claramente errado
-- `src/admin/` recebe tolerâncias mais altas — não sinalize o que é aceitável para a camada
+- Módulos CRUD recebem tolerâncias mais altas — não sinalize o que é aceitável para a camada
