@@ -114,8 +114,8 @@ Leia `docs/architecture/04-quando-usar-clean-architecture.md` e classifique:
 
 ### 2.1 — Clean Architecture ou Simples?
 
-| Critério | CA | Simples (`src/admin/`) |
-|----------|-----|----------------------|
+| Critério | CA | Simples |
+|----------|-----|---------|
 | Toca saldo/ledger | ✅ | ❌ |
 | Autenticação/KYC | ✅ | ❌ |
 | Bitcoin on-chain | ✅ | ❌ |
@@ -195,28 +195,28 @@ Se "ajustar" → volte ao architect com as alterações do usuário.
 
 **Objetivo:** implementar camada por camada, com gate entre cada uma.
 
-### 5.1 — Domínio (`src/domain/`)
+### 5.1 — Domínio (`src/modules/<ctx>/domain/`)
 1. Implemente todas as entidades, VOs, erros, eventos e interfaces de repositório do plano.
 2. **GATE 5.1:** "Domínio implementado. <arquivos criados>. Aprova para aplicação?"
 
-### 5.2 — Aplicação (`src/application/`)
+### 5.2 — Aplicação (`src/modules/<ctx>/application/`)
 1. Implemente todos os use cases do plano.
 2. **GATE 5.2:** "Aplicação implementada. <arquivos criados>. Aprova para infraestrutura?"
 
-### 5.3 — Infraestrutura (`src/infrastructure/`)
+### 5.3 — Infraestrutura (`src/modules/<ctx>/infrastructure/`)
 1. Implemente migrations, queries e repositórios do plano.
-2. **GATE 5.3:** "Infraestrutura implementada. <arquivos criados>. Aprova para interface adapters?"
+2. **GATE 5.3:** "Infraestrutura implementada. <arquivos criados>. Aprova para presentation?"
 
-### 5.4 — Interface Adapters (`src/interface-adapters/`)
+### 5.4 — Presentation (`src/modules/<ctx>/presentation/`)
 1. Implemente DTOs, controllers e módulos do plano.
-2. **GATE 5.4:** "Interface implementada. <arquivos criados>. Aprova para testes?"
+2. **GATE 5.4:** "Presentation implementada. <arquivos criados>. Aprova para testes?"
 
 ### Regras durante implementação:
 - Siga a ordem do plano rigorosamente.
 - Use `UnitOfWork` para operações multi-tabela.
 - Valores monetários sempre em `bigint`.
 - Erros sempre tipados (subclasses de `DomainError`).
-- SQL nomeado em `*.queries.ts`, nunca inline (exceto `src/admin/`).
+- SQL nomeado em `*.sql.ts`, nunca inline.
 - **Não commit nenhum.** O commit é na Etapa 8.
 
 ---

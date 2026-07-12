@@ -184,7 +184,7 @@ Invariantes do conceito Order:
 // - Existe no runtime → NestJS usa como token de injeção diretamente
 // - Métodos find* retornam entidade ou null — nunca undefined, nunca boolean
 // - Métodos save/delete retornam void — nunca boolean
-// - Fica em src/domain/<contexto>/<nome>.repository.ts
+// - Fica em src/modules/<contexto>/domain/<nome>.repository.ts
 //
 // No módulo NestJS:
 //   { provide: OrderRepository, useClass: OrderPostgresRepository }
@@ -222,7 +222,7 @@ Eventos de Order:
 ## Passo 6 — Identificar erros tipados necessários
 
 ```typescript
-// src/domain/<contexto>/<nome>.errors.ts
+// src/modules/<contexto>/domain/<nome>.errors.ts
 export class InvalidOrderAmountError extends DomainError { ... }
 export class OrderAlreadyCancelledError extends DomainError { ... }
 export class InsufficientLockedBalanceError extends DomainError { ... }
@@ -266,7 +266,7 @@ export abstract class <Nome>Repository {
 
 ### Estrutura sugerida de arquivos
 ```
-src/domain/<contexto>/
+src/modules/<contexto>/domain/
 ├── <nome>.entity.ts        (ou .value-object.ts)
 ├── <nome>.repository.ts    (se entidade/aggregate)
 ├── <nome>.errors.ts

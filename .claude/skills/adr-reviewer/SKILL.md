@@ -36,9 +36,9 @@ Preencha cada item: `OK` com evidência, ou `PROBLEMA` com severidade.
 - As emendas do validador (Estágio 2) foram endereçadas?
 
 **B. Regra de Dependência (Clean Architecture)**
-- Nenhum arquivo em `src/domain/` ou `src/application/` importa de `src/infrastructure/` ou `src/interface-adapters/`?
+- Nenhum arquivo em `src/modules/<ctx>/domain/` ou `src/modules/<ctx>/application/` importa de `src/modules/<ctx>/infrastructure/` ou `src/modules/<ctx>/presentation/`?
   ```bash
-  grep -r "from '.*infrastructure\|from '.*interface-adapters" src/domain/ src/application/
+  grep -r "from '.*infrastructure\|from '.*presentation" src/modules/*/domain/ src/modules/*/application/
   ```
   Resultado deve ser vazio. Qualquer hit = REPROVA.
 - Use cases recebem apenas interfaces (`*Repository`, `UnitOfWork`) no construtor?
@@ -48,7 +48,7 @@ Preencha cada item: `OK` com evidência, ou `PROBLEMA` com severidade.
 - Erros são subclasses tipadas de `DomainError` (nunca `boolean`, nunca string genérica)?
 - Regras de negócio estão nas entidades, não nos use cases?
 - Repositórios retornam entidades de domínio (nunca `boolean` ou `undefined` em caso de falha)?
-- Interfaces de repositório estão em `src/domain/`, não em `src/infrastructure/`?
+- Interfaces de repositório estão em `src/modules/<ctx>/domain/`, não em `src/modules/<ctx>/infrastructure/`?
 
 **D. Precisão monetária**
 - Todos os campos monetários no SQL são `BIGINT`?
@@ -66,7 +66,7 @@ Preencha cada item: `OK` com evidência, ou `PROBLEMA` com severidade.
 - Operação duplicada (idempotência) está tratada?
 
 **G. Qualidade**
-- Sem SQL inline nos repositórios (queries em `src/infrastructure/database/queries/`)?
+- Sem SQL inline nos repositórios (queries em `src/modules/<ctx>/infrastructure/persistence/`)?
 - Sem comentários explicando o que o código faz (nomes devem ser autoexplicativos)?
 - Sem abstrações desnecessárias além do que o ADR especificou?
 
