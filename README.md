@@ -45,17 +45,24 @@ O projeto aplica **Clean Architecture + DDD** nos fluxos de domínio e uma abord
 
 ```
 src/
-├── domain/              ← entidades, value objects, interfaces de repositório, erros
-├── application/         ← use cases
-├── infrastructure/      ← repositórios Postgres, DatabaseService, migrations
-├── interface-adapters/  ← controllers, DTOs, módulos NestJS
-└── admin/               ← CRUD administrativo (moedas, pares de mercado)
+├── infrastructure/              ← infraestrutura compartilhada (DatabaseService, migrations, telemetry)
+│   ├── database/
+│   └── telemetry/
+├── modules/                     ← módulos de negócio, cada um com suas próprias camadas CA
+│   └── <contexto>/
+│       ├── domain/
+│       ├── application/
+│       ├── infrastructure/persistence/
+│       ├── presentation/
+│       └── <contexto>.module.ts
+├── shared/                      ← artefatos de domínio compartilhados (DomainError, UnitOfWork)
+└── app.module.ts
 ```
 
 A documentação de arquitetura está em [`docs/architecture/`](docs/architecture/).
 
 **Critério para decidir onde o código vai:**
-> "Se uma falha pode causar perda financeira ou acesso não autorizado → Clean Architecture. Se é CRUD sem regra de negócio → `src/admin/`."
+> "Se uma falha pode causar perda financeira ou acesso não autorizado → Clean Architecture. Se é CRUD sem regra de negócio → abordagem simples dentro do módulo correspondente."
 
 ---
 
@@ -91,9 +98,7 @@ A documentação de arquitetura está em [`docs/architecture/`](docs/architectur
 
 | ADR | Decisão |
 |-----|---------|
-| [`0001-atomic-transactions.md`](docs/adr/0001-atomic-transactions.md) | Padrão IUnitOfWork para transações atômicas |
-| [`0002-schema-identidade-kyc.md`](docs/adr/0002-schema-identidade-kyc.md) | Schema de accounts e KYC |
-| [`0003-schema-financeiro-ledger-bitcoin.md`](docs/adr/0003-schema-financeiro-ledger-bitcoin.md) | Schema de transactions, ledger_entries e bitcoin_transactions |
+| [`0001-unit-of-work-pattern.md`](docs/adr/0001-unit-of-work-pattern.md) | Padrão UnitOfWork para atomicidade |
 
 ---
 
@@ -148,18 +153,18 @@ Use **antes de escrever qualquer código**. Essas skills evitam o custo de refat
 
 | Skill | Descrição |
 |-------|-----------|
-| `/task-planner` | Dado uma funcionalidade, carrega a documentação relevante, classifica CA vs `src/admin/`, lista os artefatos a criar em ordem de camada (domain → application → infrastructure → adapters), mapeia dependências e define quais guards executar ao final. Para para aprovação antes de implementar |
+| `/task-planner` | Dado uma funcionalidade, carrega a documentação relevante, classifica CA vs simples, lista os artefatos a criar em ordem de camada (domain → application → infrastructure → presentation), mapeia dependências e define quais guards executar ao final. Para para aprovação antes de implementar |
 | `/domain-modeler` | Dado um conceito de negócio, faz as perguntas certas de DDD, determina se é Entidade, Value Object ou Aggregate, define invariantes com erros tipados, projeta a interface `I*Repository` e os Domain Events. Para para aprovação antes de implementar |
 
 #### Padrões de teste
 
-**Testes unitários** (`src/domain/`, `src/application/`): mocks de interfaces, sem banco.
+**Testes unitários** (`src/modules/<ctx>/domain/`, `src/modules/<ctx>/application/`): mocks de interfaces, sem banco.
 
-**Testes de integração** (`src/infrastructure/`): banco real, isolados com `BEGIN`/`ROLLBACK`.
+**Testes de integração** (`src/modules/<ctx>/infrastructure/`): banco real, isolados com `BEGIN`/`ROLLBACK`.
 
 ```bash
-pnpm test -- transaction.entity.spec.ts   # arquivo específico
-pnpm test -- src/domain/                  # contexto específico
+pnpm test -- transaction.entity.spec.ts       # arquivo específico
+pnpm test -- src/modules/financial/           # contexto específico
 ```
 
 ---
@@ -170,8 +175,8 @@ pnpm test -- src/domain/                  # contexto específico
 
 **Erros de domínio:** subclasses de `DomainError` — nunca retornar `boolean` ou `null` para indicar falha.
 
-**Atomicidade:** operações multi-tabela obrigatoriamente em `IUnitOfWork.run()`.
+**Atomicidade:** operações multi-tabela obrigatoriamente em `UnitOfWork.run()`.
 
-**SQL:** em `src/infrastructure/database/queries/*.queries.ts` — nunca inline em repositórios de CA.
+**SQL:** em `src/modules/<ctx>/infrastructure/persistence/*.sql.ts` — nunca inline em repositórios.
 
 **Repositórios:** retornam entidade de domínio ou `null` — nunca `undefined`, nunca `boolean`.
