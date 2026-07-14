@@ -1,7 +1,8 @@
-import { RegisterUser, RegisterUserInput } from './register-user.usecase';
-import { EmailAlreadyExistsError } from '../domain/errors/email-already-exists.error';
-import { TermsNotAcceptedError } from '../domain/errors/terms-not-accepted.error';
-import { User } from '../domain/entities/user.entity';
+import { RegisterUser } from '@/modules/identity/application/register-user.usecase';
+import { EmailAlreadyExistsError } from '@/modules/identity/domain/errors/email-already-exists.error';
+import { TermsNotAcceptedError } from '@/modules/identity/domain/errors/terms-not-accepted.error';
+import { User } from '@/modules/identity/domain/entities/user.entity';
+import { RegisterUserInput } from '@/modules/identity/application/dtos/register-user.usecase.input';
 
 describe('RegisterUser', () => {
   const mockUserRepo = {
@@ -120,6 +121,94 @@ describe('RegisterUser', () => {
 
       const calledWith = mockUserRepo.findByEmail.mock.calls[0][0];
       expect(calledWith.toString()).toBe('john@example.com');
+    });
+
+    it('loga info no início da operação', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+
+      await sut.execute(validInput);
+
+      expect(mockLoggerInfo).toHaveBeenCalledWith(
+        'User registration started',
+        expect.objectContaining({
+          operation: 'register_user',
+          email: 'john@example.com',
+        }),
+      );
+    });
+
+    it('loga warn quando email já existe', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(
+        User.create({
+          name: 'Existing',
+          email: { toString: () => 'john@example.com' } as any,
+          passwordHash: '$2b$12$hash',
+          termsAccepted: true,
+          registrationIp: '127.0.0.1',
+        }),
+      );
+
+      await expect(sut.execute(validInput)).rejects.toThrow();
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        'Registration rejected: email already exists',
+        expect.objectContaining({
+          operation: 'register_user',
+          reason: 'EMAIL_ALREADY_EXISTS',
+        }),
+      );
+    });
+
+    it('loga warn quando termos não são aceitos', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+
+      await expect(
+        sut.execute({ ...validInput, termsAccepted: false }),
+      ).rejects.toThrow();
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        'Registration rejected: terms not accepted',
+        expect.objectContaining({
+          operation: 'register_user',
+          reason: 'TERMS_NOT_ACCEPTED',
+        }),
+      );
+    });
+
+    it('loga info no sucesso com userId e duração', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+
+      await sut.execute(validInput);
+
+      expect(mockLoggerInfo).toHaveBeenCalledWith(
+        'User registration completed',
+        expect.objectContaining({
+          operation: 'register_user',
+          userId: expect.any(String),
+          duration_ms: expect.any(Number),
+        }),
+      );
+    });
+
+    it('loga error quando falha envio de email de verificação', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+      mockEmailService.sendVerification.mockRejectedValue(
+        new Error('SMTP timeout'),
+      );
+
+      await sut.execute(validInput);
+
+      // Wait for microtask queue
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        'Failed to send verification email',
+        expect.any(Error),
+        expect.objectContaining({
+          operation: 'register_user',
+          userId: expect.any(String),
+        }),
+      );
     });
   });
 });

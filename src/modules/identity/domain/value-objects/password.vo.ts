@@ -1,4 +1,4 @@
-import { WeakPasswordError } from '../errors/weak-password.error';
+import { WeakPasswordError } from '@/modules/identity/domain/errors/weak-password.error';
 
 export class Password {
   private constructor(private readonly hashedValue: string) {}

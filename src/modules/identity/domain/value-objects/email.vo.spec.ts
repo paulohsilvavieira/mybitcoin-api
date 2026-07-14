@@ -1,5 +1,5 @@
-import { Email } from './email.vo';
-import { InvalidEmailError } from '../errors/invalid-email.error';
+import { Email } from '@/modules/identity/domain/value-objects/email.vo';
+import { InvalidEmailError } from '@/modules/identity/domain/errors/invalid-email.error';
 
 describe('Email', () => {
   describe('create', () => {

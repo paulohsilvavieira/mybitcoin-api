@@ -1,6 +1,6 @@
-import { User } from './user.entity';
-import { Email } from '../value-objects/email.vo';
-import { TermsNotAcceptedError } from '../errors/terms-not-accepted.error';
+import { User } from '@/modules/identity/domain/entities/user.entity';
+import { Email } from '@/modules/identity/domain/value-objects/email.vo';
+import { TermsNotAcceptedError } from '@/modules/identity/domain/errors/terms-not-accepted.error';
 
 describe('User', () => {
   describe('create', () => {

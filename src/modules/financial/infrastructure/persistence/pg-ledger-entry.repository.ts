@@ -1,10 +1,10 @@
-import { LedgerEntryRepository } from '../../domain/ledger-entry.repository';
-import { LedgerEntry } from '../../domain/ledger-entry.entity';
-import { QueryExecutor } from '../../../../infrastructure/database/query-executor';
+import { LedgerEntryRepository } from '@/modules/financial/domain/ledger-entry.repository';
+import { LedgerEntry } from '@/modules/financial/domain/ledger-entry.entity';
+import { QueryExecutor } from '@/infrastructure/database/query-executor';
 import {
   saveLedgerEntryQuery,
   findLedgerEntriesByTransactionIdQuery,
-} from './ledger-entry.sql';
+} from '@/modules/financial/infrastructure/persistence/ledger-entry.sql';
 
 interface LedgerEntryRow {
   id: string;

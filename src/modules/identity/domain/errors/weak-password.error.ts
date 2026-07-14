@@ -1,4 +1,4 @@
-import { DomainError } from '../../../../shared/domain.error';
+import { DomainError } from '@/shared/domain.error';
 
 export class WeakPasswordError extends DomainError {
   readonly code = 'WEAK_PASSWORD';

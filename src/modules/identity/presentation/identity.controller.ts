@@ -6,8 +6,8 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { RegisterUser } from '../application/register-user.usecase';
-import { RegisterUserDto } from './dto/register-user.dto';
+import { RegisterUser } from '@/modules/identity/application/register-user.usecase';
+import { RegisterUserDto } from '@/modules/identity/presentation/dto/register-user.dto';
 
 @Controller('auth')
 export class IdentityController {

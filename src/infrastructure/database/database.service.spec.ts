@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { QueryResult } from 'pg';
-import { DatabaseService } from './database.service';
-import { POOL_TOKEN } from './database.token';
-import { PGTransactionControl } from './transaction';
+import { DatabaseService } from '@/infrastructure/database/database.service';
+import { POOL_TOKEN } from '@/infrastructure/database/database.token';
+import { PGTransactionControl } from '@/infrastructure/database/transaction';
 
 const mockClient = {
   query: jest.fn(),

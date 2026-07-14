@@ -2,9 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 
-import { PGTransactionControl } from './transaction';
-import { POOL_TOKEN } from './database.token';
-import { QueryExecutor } from './query-executor';
+import { PGTransactionControl } from '@/infrastructure/database/transaction';
+import { POOL_TOKEN } from '@/infrastructure/database/database.token';
+import { QueryExecutor } from '@/infrastructure/database/query-executor';
 
 @Injectable()
 export class DatabaseService implements QueryExecutor {
