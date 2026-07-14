@@ -1,13 +1,16 @@
-import { QueryExecutor } from '../../../../infrastructure/database/query-executor';
-import { UserRepository } from '../../domain/repositories/user.repository';
-import { User } from '../../domain/entities/user.entity';
-import { Email } from '../../domain/value-objects/email.vo';
-import { UserMapper, UserRow } from './user.mapper';
+import { QueryExecutor } from '@/infrastructure/database/query-executor';
+import { UserRepository } from '@/modules/identity/domain/repositories/user.repository';
+import { User } from '@/modules/identity/domain/entities/user.entity';
+import { Email } from '@/modules/identity/domain/value-objects/email.vo';
+import {
+  UserMapper,
+  UserRow,
+} from '@/modules/identity/infrastructure/persistence/user.mapper';
 import {
   findUserByIdQuery,
   findUserByEmailQuery,
   saveUserQuery,
-} from './user.sql';
+} from '@/modules/identity/infrastructure/persistence/user.sql';
 
 export class PgUserRepository extends UserRepository {
   constructor(private readonly db: QueryExecutor) {

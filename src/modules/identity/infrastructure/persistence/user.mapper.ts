@@ -1,10 +1,10 @@
-import { User } from '../../domain/entities/user.entity';
-import { UserId } from '../../domain/value-objects/user-id.vo';
-import { Email } from '../../domain/value-objects/email.vo';
+import { User } from '@/modules/identity/domain/entities/user.entity';
+import { UserId } from '@/modules/identity/domain/value-objects/user-id.vo';
+import { Email } from '@/modules/identity/domain/value-objects/email.vo';
 import {
   UserStatus,
   UserStatusType,
-} from '../../domain/value-objects/user-status.vo';
+} from '@/modules/identity/domain/value-objects/user-status.vo';
 
 export interface UserRow {
   id: string;

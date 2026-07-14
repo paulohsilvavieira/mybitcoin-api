@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
-import { FinancialController } from './presentation/financial.controller';
-import { ConfirmDepositUseCase } from './application/confirm-deposit.usecase';
-import { ConfirmDepositWithUowUseCase } from './application/confirm-deposit-with-uow.usecase';
-import { TransactionRepository } from './domain/transaction.repository';
-import { LedgerEntryRepository } from './domain/ledger-entry.repository';
-import { UnitOfWork } from '../../shared/unit-of-work';
-import { PgTransactionRepository } from './infrastructure/persistence/pg-transaction.repository';
-import { PgLedgerEntryRepository } from './infrastructure/persistence/pg-ledger-entry.repository';
-import { DatabaseService } from '../../infrastructure/database/database.service';
+import { FinancialController } from '@/modules/financial/presentation/financial.controller';
+import { ConfirmDepositUseCase } from '@/modules/financial/application/confirm-deposit.usecase';
+import { ConfirmDepositWithUowUseCase } from '@/modules/financial/application/confirm-deposit-with-uow.usecase';
+import { TransactionRepository } from '@/modules/financial/domain/transaction.repository';
+import { LedgerEntryRepository } from '@/modules/financial/domain/ledger-entry.repository';
+import { UnitOfWork } from '@/shared/unit-of-work';
+import { PgTransactionRepository } from '@/modules/financial/infrastructure/persistence/pg-transaction.repository';
+import { PgLedgerEntryRepository } from '@/modules/financial/infrastructure/persistence/pg-ledger-entry.repository';
+import { DatabaseService } from '@/infrastructure/database/database.service';
 
 @Module({
   controllers: [FinancialController],

@@ -1,7 +1,7 @@
-import { Email } from '../value-objects/email.vo';
-import { UserId } from '../value-objects/user-id.vo';
-import { UserStatus } from '../value-objects/user-status.vo';
-import { TermsNotAcceptedError } from '../errors/terms-not-accepted.error';
+import { Email } from '@/modules/identity/domain/value-objects/email.vo';
+import { UserId } from '@/modules/identity/domain/value-objects/user-id.vo';
+import { UserStatus } from '@/modules/identity/domain/value-objects/user-status.vo';
+import { TermsNotAcceptedError } from '@/modules/identity/domain/errors/terms-not-accepted.error';
 
 export class User {
   private constructor(
