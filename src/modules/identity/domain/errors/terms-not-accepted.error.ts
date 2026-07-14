@@ -1,4 +1,4 @@
-import { DomainError } from '../../../../shared/domain.error';
+import { DomainError } from '@/shared/domain.error';
 
 export class TermsNotAcceptedError extends DomainError {
   readonly code = 'TERMS_NOT_ACCEPTED';

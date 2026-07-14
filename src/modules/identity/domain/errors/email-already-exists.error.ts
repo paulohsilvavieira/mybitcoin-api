@@ -1,4 +1,4 @@
-import { DomainError } from '../../../../shared/domain.error';
+import { DomainError } from '@/shared/domain.error';
 
 export class EmailAlreadyExistsError extends DomainError {
   readonly code = 'EMAIL_ALREADY_EXISTS';

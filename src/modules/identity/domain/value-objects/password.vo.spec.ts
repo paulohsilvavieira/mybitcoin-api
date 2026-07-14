@@ -1,5 +1,5 @@
-import { Password } from './password.vo';
-import { WeakPasswordError } from '../errors/weak-password.error';
+import { Password } from '@/modules/identity/domain/value-objects/password.vo';
+import { WeakPasswordError } from '@/modules/identity/domain/errors/weak-password.error';
 
 describe('Password', () => {
   describe('create', () => {

@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
-import { IdentityController } from './presentation/identity.controller';
-import { RegisterUser } from './application/register-user.usecase';
-import { PgUserRepository } from './infrastructure/persistence/pg-user.repository';
-import { UserRepository } from './domain/repositories/user.repository';
-import { EmailService } from './domain/services/email.service';
-import { QueryExecutor } from '../../infrastructure/database/query-executor';
+import { IdentityController } from '@/modules/identity/presentation/identity.controller';
+import { RegisterUser } from '@/modules/identity/application/register-user.usecase';
+import { PgUserRepository } from '@/modules/identity/infrastructure/persistence/pg-user.repository';
+import { UserRepository } from '@/modules/identity/domain/repositories/user.repository';
+import { EmailService } from '@/modules/identity/domain/services/email.service';
+import { QueryExecutor } from '@/infrastructure/database/query-executor';
+import { LoggerPort, LOGGER_PORT } from '@/shared/logger.port';
+import { OtelLoggerAdapter } from '@/infrastructure/telemetry/otel-logger.adapter';
 import * as bcrypt from 'bcrypt';
 
 @Module({
@@ -22,15 +24,24 @@ import * as bcrypt from 'bcrypt';
       }),
     },
     {
+      provide: LoggerPort,
+      useClass: OtelLoggerAdapter,
+    },
+    {
       provide: RegisterUser,
-      useFactory: (userRepo: UserRepository, emailService: EmailService) => {
+      useFactory: (
+        userRepo: UserRepository,
+        emailService: EmailService,
+        logger: LoggerPort,
+      ) => {
         return new RegisterUser(
           userRepo,
           emailService,
           (plain: string) => bcrypt.hash(plain, 12) as Promise<string>,
+          logger,
         );
       },
-      inject: [UserRepository, EmailService],
+      inject: [UserRepository, EmailService, LOGGER_PORT],
     },
   ],
 })
