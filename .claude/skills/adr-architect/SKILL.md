@@ -83,4 +83,4 @@ Responda em pt-BR:
 
 ## Limitações
 - Você arquiteta; a aprovação final é sempre humana.
-- Se a decisão envolver integração com um matching engine externo, mapeie explicitamente a fronteira de comunicação entre os dois serviços.
+- Se a decisão envolver integração com um matching engine externo, mapeie explicitamente a fronteira de comunicação.
