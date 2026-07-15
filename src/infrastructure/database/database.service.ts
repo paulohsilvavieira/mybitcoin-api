@@ -2,7 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 
-import { PGTransactionControl } from '@/infrastructure/database/transaction';
 import { POOL_TOKEN } from '@/infrastructure/database/database.token';
 import { QueryExecutor } from '@/infrastructure/database/query-executor';
 
@@ -17,21 +16,21 @@ export class DatabaseService implements QueryExecutor {
     return this.pool.query<T>(sql, params);
   }
 
-  async runInTransaction<T>(
-    fn: (tx: PGTransactionControl) => Promise<T>,
-  ): Promise<T> {
+  async runInTransaction<T>(fn: (tx: QueryExecutor) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
     await client.query('BEGIN');
-    const tx = new PGTransactionControl(client);
+    const tx: QueryExecutor = {
+      query: (sql, params) => client.query(sql, params),
+    };
     try {
       const result = await fn(tx);
-      await tx.commit();
+      await client.query('COMMIT');
       return result;
     } catch (error) {
-      await tx.rollback();
+      await client.query('ROLLBACK');
       throw error;
     } finally {
-      tx.release();
+      client.release();
     }
   }
 }
