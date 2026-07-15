@@ -1,10 +1,10 @@
-import { TransactionRepository } from '../../domain/transaction.repository';
-import { Transaction } from '../../domain/transaction.entity';
-import { QueryExecutor } from '../../../../infrastructure/database/query-executor';
+import { TransactionRepository } from '@/modules/financial/domain/transaction.repository';
+import { Transaction } from '@/modules/financial/domain/transaction.entity';
+import { QueryExecutor } from '@/infrastructure/database/query-executor';
 import {
   findTransactionByIdQuery,
   saveTransactionQuery,
-} from './transaction.sql';
+} from '@/modules/financial/infrastructure/persistence/transaction.sql';
 
 interface TransactionRow {
   id: string;

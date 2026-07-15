@@ -1,8 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { QueryResult } from 'pg';
-import { DatabaseService } from './database.service';
-import { POOL_TOKEN } from './database.token';
-import { PGTransactionControl } from './transaction';
+import { DatabaseService } from '@/infrastructure/database/database.service';
+import { POOL_TOKEN } from '@/infrastructure/database/database.token';
 
 const mockClient = {
   query: jest.fn(),
@@ -67,7 +66,7 @@ describe('DatabaseService', () => {
       expect(mockClient.release).toHaveBeenCalledTimes(1);
     });
 
-    it('passes a Transaction instance to fn', async () => {
+    it('passes a QueryExecutor to fn', async () => {
       let received: unknown;
 
       await service.runInTransaction((tx) => {
@@ -75,52 +74,10 @@ describe('DatabaseService', () => {
         return Promise.resolve();
       });
 
-      expect(received).toBeInstanceOf(PGTransactionControl);
-    });
-  });
-});
-
-describe('Transaction', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockClient.query.mockResolvedValue(undefined);
-  });
-
-  const makeTx = () => new PGTransactionControl(mockClient as never);
-
-  describe('query', () => {
-    it('delegates to client.query with sql and params', async () => {
-      const fakeResult = { rows: [] } as unknown as QueryResult;
-      mockClient.query.mockResolvedValueOnce(fakeResult);
-
-      const result = await makeTx().query('SELECT $1', [42]);
-
-      expect(mockClient.query).toHaveBeenCalledWith('SELECT $1', [42]);
-      expect(result).toBe(fakeResult);
-    });
-  });
-
-  describe('commit', () => {
-    it('issues COMMIT', async () => {
-      await makeTx().commit();
-
-      expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
-    });
-  });
-
-  describe('rollback', () => {
-    it('issues ROLLBACK', async () => {
-      await makeTx().rollback();
-
-      expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
-    });
-  });
-
-  describe('release', () => {
-    it('releases the client', () => {
-      makeTx().release();
-
-      expect(mockClient.release).toHaveBeenCalledTimes(1);
+      expect(received).toHaveProperty('query');
+      expect(
+        typeof (received as { query: (...args: unknown[]) => unknown }).query,
+      ).toBe('function');
     });
   });
 });

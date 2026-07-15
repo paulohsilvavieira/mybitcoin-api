@@ -1,6 +1,6 @@
-import { ConfirmDepositUseCase } from './confirm-deposit.usecase';
-import { Transaction } from '../domain/transaction.entity';
-import { LedgerEntry } from '../domain/ledger-entry.entity';
+import { ConfirmDepositUseCase } from '@/modules/financial/application/confirm-deposit.usecase';
+import { Transaction } from '@/modules/financial/domain/transaction.entity';
+import { LedgerEntry } from '@/modules/financial/domain/ledger-entry.entity';
 
 describe('ConfirmDepositUseCase', () => {
   let useCase: ConfirmDepositUseCase;
