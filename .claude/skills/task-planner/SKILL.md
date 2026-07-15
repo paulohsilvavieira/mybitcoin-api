@@ -1,6 +1,6 @@
 ---
 name: task-planner
-description: Planeja a implementação de uma funcionalidade ANTES de escrever qualquer código. Carrega o contexto de documentação relevante, classifica a abordagem (CA vs simples), lista os artefatos a criar na ordem correta e define quais guards executar ao final. Gatilhos válidos — (1) slash command /task-planner; (2) usuário pede "planejar a implementação", "como implementar X", "quais arquivos preciso criar para Y", "me ajuda a planejar antes de codar", "por onde começo". Produz um plano estruturado e PARA para aprovação humana antes de qualquer implementação. NÃO escreve código. NÃO invocar automaticamente.
+description: Planeja a implementação de uma funcionalidade ANTES de escrever qualquer código. Carrega o contexto de documentação relevante, classifica a abordagem (CA vs simples), lista os artefatos a criar na ordem correta e define quais guards executar ao final. Suporta planejamento cross-project (API + Frontend). Gatilhos válidos — (1) slash command /task-planner; (2) usuário pede "planejar a implementação", "como implementar X", "quais arquivos preciso criar para Y", "me ajuda a planejar antes de codar", "por onde começo". Produz um plano estruturado e PARA para aprovação humana antes de qualquer implementação. NÃO escreve código. NÃO invocar automaticamente.
 ---
 
 # Task Planner — mybitcoin-api
@@ -110,6 +110,54 @@ TESTES
 
 ---
 
+## Passo 3B — Mapear artefatos Frontend (se aplicável)
+
+Se a tarefa envolve frontend (usuário confirmou "API + Frontend" na recepção), liste também os artefatos do mybitcoin-front.
+
+Leia `.pipeline-config.json` na raiz do mybitcoin-api para obter o path do frontend.
+
+### Ordem de implementação frontend:
+
+```
+TIPOS (<frontend>/src/types/)
+  □ <nome>.types.ts          — interfaces de request, response e modelos de UI
+                               valores monetários: amount_satoshi: string (nunca number)
+
+SERVICE + HOOKS QUERY (<frontend>/src/services/)
+  □ <nome>.service.ts        — funções axios
+  □ use<Nome>.ts             — useQuery / useMutation wrappando o service
+                               queryKey estável, staleTime intencional, invalidação no onSuccess
+
+STORE (<frontend>/src/stores/) — só se estado global
+  □ use<Nome>Store.ts        — store Zustand com slice mínimo
+                               Só para dados compartilhados entre páginas distantes
+
+HOOKS (<frontend>/src/hooks/)
+  □ use<Nome>.ts             — lógica reutilizável extraída de componentes
+
+COMPONENTES (<frontend>/src/components/<domínio>/)
+  □ <Nome>.tsx               — componente ≤ 150 linhas, ≤ 5 props
+                               mobile-first, aria-label, tokens semânticos
+                               estados: loading (Skeleton), error (Alert), empty (EmptyState)
+
+FORMULÁRIOS (se aplicável)
+  □ Schema zod em <frontend>/src/types/<nome>.schema.ts
+  □ Componente usando react-hook-form + zodResolver + shadcn Form
+  □ Erros da API via form.setError('root', { message })
+
+PÁGINA (<frontend>/src/pages/<rota>/)
+  □ <Nome>.tsx               — composição dos componentes
+                               Envolta em <ErrorBoundary>
+                               Lazy loaded com React.lazy()
+                               Sem lógica de negócio inline
+
+TESTES FRONTEND (<frontend>/src/)
+  □ <arquivo>.test.tsx       — testes com Vitest + Testing Library
+                               happy path, error state, loading, edge cases
+```
+
+---
+
 ## Passo 4 — Identificar dependências e riscos
 
 Para cada artefato listado, responda:
@@ -189,11 +237,18 @@ Suposições que precisam de confirmação:
 - [ ] src/modules/<ctx>/infrastructure/persistence/pg-<nome>.repository.spec.ts — testar: <persistência + bigint>
 
 ### Guards a executar ao final
+
+**API:**
 - [ ] /arch-guard — verificar Regra de Dependência
 - [ ] /ledger-guard — verificar invariantes financeiros (se aplicável)
 - [ ] /security-guard — verificar regras de acesso (se aplicável)
 - [ ] /code-reviewer — verificar complexidade e código limpo
 - [ ] /test-reviewer — verificar qualidade dos testes
+
+**Frontend (se aplicável):**
+- [ ] /frontend-guard — verificar invariantes frontend (FIN-xxx, UI-xxx, DATA-xxx, SEC-xxx)
+- [ ] build frontend — pnpm build sem erros TypeScript
+- [ ] lint frontend — pnpm lint sem erros
 
 ### Riscos e dependências
 - <risco identificado>

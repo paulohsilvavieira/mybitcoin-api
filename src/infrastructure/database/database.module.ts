@@ -1,9 +1,9 @@
 import { Global, Module } from '@nestjs/common';
-import { DatabaseConnectionProvider } from './database.provider';
-import { DatabaseService } from './database.service';
-import { POOL_TOKEN } from './database.token';
-import { UnitOfWork } from '../../shared/unit-of-work';
-import { PostgresUnitOfWork } from './unit-of-work.postgres';
+import { DatabaseConnectionProvider } from '@/infrastructure/database/database.provider';
+import { DatabaseService } from '@/infrastructure/database/database.service';
+import { POOL_TOKEN } from '@/infrastructure/database/database.token';
+import { UnitOfWork } from '@/shared/unit-of-work';
+import { PostgresUnitOfWork } from '@/infrastructure/database/unit-of-work-postgres.service';
 
 @Global()
 @Module({

@@ -1,6 +1,6 @@
 ---
 name: dev-pipeline
-description: Pipeline completa de desenvolvimento. Orquestra todas as skills do projeto (ADR, planner, implementação, guards, testes, PR) em sequência, com gate de aprovação humana em cada etapa. Gatilhos — (1) slash command /dev-pipeline; (2) usuário pede "desenvolver X", "implementar X do início ao fim", "rodar a pipeline completa". NÃO pula etapas. NÃO toma decisões sem aprovação. NÃO invocar automaticamente.
+description: Pipeline completa de desenvolvimento. Orquestra todas as skills do projeto (ADR, planner, implementação, guards, testes, PR) em sequência, com gate de aprovação humana em cada etapa. Suporta implementação cross-project (API + Frontend). Gatilhos — (1) slash command /dev-pipeline; (2) usuário pede "desenvolver X", "implementar X do início ao fim", "rodar a pipeline completa". NÃO pula etapas. NÃO toma decisões sem aprovação. NÃO invocar automaticamente.
 ---
 
 # Dev Pipeline — mybitcoin-api
@@ -29,12 +29,12 @@ Você é o **orquestrador** da pipeline de desenvolvimento. Sua função é guia
                        │
                        ▼
               ┌────────────────┐
-              │  1. RECEPÇÃO   │  ← Perguntas iniciais
+              │  1. RECEPÇÃO   │  ← Perguntas iniciais (inclui escopo UI)
               └───────┬────────┘
                       │
                       ▼
               ┌────────────────┐
-              │  2. TRIAGEM    │  ← CA vs Simples? Precisa de ADR?
+              │  2. TRIAGEM    │  ← CA vs Simples? Frontend? Precisa de ADR?
               └───────┬────────┘
                       │
               ┌───────┴───────┐
@@ -59,28 +59,46 @@ Você é o **orquestrador** da pipeline de desenvolvimento. Sua função é guia
              │                │
              ▼                ▼
               ┌────────────────┐
-              │ 4. TASK PLANNER│
+              │ 4. TASK PLANNER│  ← Planeja API + Frontend
               └───────┬────────┘
                       │ GATE
                       ▼
               ┌────────────────┐
               │ 5. IMPLEMENTAR │
-              │  por camada    │
+              │  API por camada│
               └───────┬────────┘
                       │ GATE por camada
                       ▼
               ┌────────────────┐
-              │ 6. TESTES      │
+              │ 6. TESTES API  │
               └───────┬────────┘
                       │ GATE
                       ▼
               ┌────────────────┐
-              │ 7. GUARDS      │
+              │ 7. GUARDS API  │
+              └───────┬────────┘
+                      │ GATE
+                      ▼
+              ┌────────────────┐     ┌──────────────────────┐
+              │ 8. IMPLEMENTAR │     │ Se "apenas API" na   │
+              │  FRONTEND      │────▶│ Etapa 1, pula 8-10   │
+              └───────┬────────┘     └──────────────────────┘
+                      │ GATE por camada
+                      ▼
+              ┌────────────────┐
+              │ 9. BUILD/LINT  │
+              │  FRONTEND      │
               └───────┬────────┘
                       │ GATE
                       ▼
               ┌────────────────┐
-              │ 8. PR          │
+              │ 10. GUARDS     │
+              │  FRONTEND      │
+              └───────┬────────┘
+                      │ GATE
+                      ▼
+              ┌────────────────┐
+              │ 11. PR         │  ← 1 PR API + 1 PR Frontend
               └───────┬────────┘
                       │
                       ▼
@@ -100,9 +118,12 @@ Você é o **orquestrador** da pipeline de desenvolvimento. Sua função é guia
    - O que deve acontecer? (comportamento esperado)
    - Quem usa? (usuário autenticado? admin? sistema?)
    - Há schema novo ou mudança de banco?
-3. Confirme o entendimento com o usuário antes de avançar.
+3. Se a funcionalidade envolver UI, pergunte também:
+   - Quais telas/componentes o frontend deve ter? (apenas API? API + Frontend?)
+   - Há mudança na API que o frontend precisa consumir?
+4. Confirme o entendimento com o usuário antes de avançar.
 
-**GATE 1:** "Entendi que a tarefa é: <resumo>. Correto? Avanço para triagem?"
+**GATE 1:** "Entendi que a tarefa é: <resumo>. Escopo: <API / API + Frontend>. Correto? Avanço para triagem?"
 
 ---
 
@@ -123,7 +144,22 @@ Leia `docs/architecture/04-quando-usar-clean-architecture.md` e classifique:
 | Efeito colateral auditável | ✅ | ❌ |
 | CRUD puro, sem regra | ❌ | ✅ |
 
-### 2.2 — Precisa de ADR?
+### 2.2 — Precisa de Frontend?
+
+Se o usuário confirmou "API + Frontend" na Etapa 1:
+
+| Critério Frontend | Simples | Complexo |
+|-------------------|---------|----------|
+| Página CRUD básica | ✅ | ❌ |
+| Componente isolado | ✅ | ❌ |
+| Nova store Zustand | ❌ | ✅ |
+| Página multi-step | ❌ | ✅ |
+| WebSocket/real-time | ❌ | ✅ |
+| Tabela com paginação/filtering | ❌ | ✅ |
+
+**Frontend complexo** pode precisar de ADR próprio (estágio 3 separado para frontend).
+
+### 2.3 — Precisa de ADR?
 
 **ADR é obrigatório** se qualquer um for verdadeiro:
 - Schema novo de banco (tabela nova)
@@ -131,13 +167,15 @@ Leia `docs/architecture/04-quando-usar-clean-architecture.md` e classifique:
 - Muda padrão de código existente
 - Integração externa nova
 - Decisão arquitetural que afeta mais de um contexto
+- Frontend complexo (nova store, WebSocket, página multi-step)
 
 **ADR não é necessário** se:
 - É continuação de ADR existente (ex: implementar endpoint para schema já definido em ADR)
 - CRUD simples sem mudança de schema
-- Fix de bug sem mudança de设计
+- Fix de bug sem mudança de design
+- Frontend simples (CRUD básico, componente isolado)
 
-**GATE 2:** "Classificação: <CA/Simples>. <Precisa/Não precisa> de ADR. <Motivo>. Avanço?"
+**GATE 2:** "Classificação: <CA/Simples>. Frontend: <Não / Simples / Complexo>. <Precisa/Não precisa> de ADR. <Motivo>. Avanço?"
 
 ---
 
@@ -185,15 +223,18 @@ Se "ajustar" → volte ao architect com as alterações do usuário.
 **Skill:** `/task-planner`
 
 1. Execute a skill `task-planner` com a descrição da tarefa (e referência ao ADR se existir).
-2. A skill produzirá o plano de implementação com artefatos, ordem e guards.
+2. A skill produzirá o plano de implementação com artefatos da API **e do frontend** (se aplicável).
+3. Se frontend complexo, o planner também listará artefatos frontend na ordem correta.
 
-**GATE 4:** Mostre o plano completo. "Plano pronto. Aprova para implementação? Algum ajuste?"
+**GATE 4:** Mostre o plano completo (API + Frontend). "Plano pronto. Aprova para implementação? Algum ajuste?"
 
 ---
 
-## Etapa 5 — IMPLEMENTAÇÃO
+## Etapa 5 — IMPLEMENTAÇÃO API
 
-**Objetivo:** implementar camada por camada, com gate entre cada uma.
+**Objetivo:** implementar o backend camada por camada, com gate entre cada uma.
+
+> **Nota:** Se o usuário escolheu "apenas API" na Etapa 1, pule para a Etapa 11 (PR) após os guards.
 
 ### 5.1 — Domínio (`src/modules/<ctx>/domain/`)
 1. Implemente todas as entidades, VOs, erros, eventos e interfaces de repositório do plano.
@@ -217,22 +258,22 @@ Se "ajustar" → volte ao architect com as alterações do usuário.
 - Valores monetários sempre em `bigint`.
 - Erros sempre tipados (subclasses de `DomainError`).
 - SQL nomeado em `*.sql.ts`, nunca inline.
-- **Não commit nenhum.** O commit é na Etapa 8.
+- **Não commit nenhum.** O commit é na Etapa 11.
 
 ---
 
-## Etapa 6 — TESTES
+## Etapa 6 — TESTES API
 
-1. Rode `pnpm test`.
+1. Rode `pnpm test` no mybitcoin-api.
 2. Se houver falhas de **regressão** (causadas pela mudança), **corrija antes de avançar**.
 3. Se houver falhas **baseline** (já existiam), registre mas não bloqueie.
 4. Verifique se os cenários do plano de testes do ADR/planner estão cobertos.
 
-**GATE 6:** "Testes: <verde/com falha>. Regressões: <nenhuma/lista>. Aprova para guards?"
+**GATE 6:** "Testes API: <verde/com falha>. Regressões: <nenhuma/lista>. Aprova para guards?"
 
 ---
 
-## Etapa 7 — GUARDS
+## Etapa 7 — GUARDS API
 
 Execute os guards conforme a natureza da tarefa:
 
@@ -249,17 +290,60 @@ Execute os guards conforme a natureza da tarefa:
 2. Se retornar VIOLAÇÃO/ISSUES → **corrija** antes de avançar.
 3. Se retornar CONFORME/PASS → avance.
 
-**GATE 7:** "Guards executados: <resultado de cada um>. Aprova para PR?"
+**GATE 7:** "Guards API executados: <resultado de cada um>. Aprova para frontend?"
 
 ---
 
-## Etapa 8 — PR (se aplicável)
+## Etapa 8 — IMPLEMENTAÇÃO FRONTEND
 
-**Skill:** `/adr-pr` (se ADR existe) ou abertura manual de PR.
+**Objetivo:** implementar o frontend no repositório mybitcoin-front.
 
+> **Nota:** Se o usuário escolheu "apenas API" na Etapa 1, **PULE** esta etapa e vá para a Etapa 11 (PR).
+
+**Skill:** `/frontend-executor`
+
+1. Execute a skill `frontend-executor` com o plano aprovado.
+2. A skill implementará na ordem: types → services → stores → hooks → components → pages.
+3. Cada camada tem gate de aprovação humana.
+
+**GATE 8:** "Frontend implementado: <resumo>. Aprova para build/lint frontend?"
+
+---
+
+## Etapa 9 — BUILD/LINT FRONTEND
+
+1. No repositório frontend, rode `pnpm build` — deve passar sem erros de TypeScript.
+2. Rode `pnpm lint` — sem erros de lint.
+3. Se houver erros, **corrija antes de avançar**.
+
+**GATE 9:** "Build frontend: <ok/erro>. Lint frontend: <ok/erro>. Aprova para guards frontend?"
+
+---
+
+## Etapa 10 — GUARDS FRONTEND
+
+**Skill:** `/frontend-guard`
+
+1. Execute a skill `frontend-guard` com os arquivos criados/modificados.
+2. A skill verificará: invariantes (FIN-xxx, UI-xxx, DATA-xxx, SEC-xxx), padrões shadcn, component-reviewer, formulários, error handling.
+3. Se retornar VIOLAÇÃO → **corrija** antes de avançar.
+4. Se retornar CONFORME → avance.
+
+**GATE 10:** "Guards frontend: <resultado>. Aprova para PR?"
+
+---
+
+## Etapa 11 — PR
+
+### Se API + Frontend:
+1. **PR da API** — componha título e corpo baseados no ADR (se existe) ou manualmente.
+2. **PR do Frontend** — componha título e corpo baseados nos arquivos criados.
+3. **GATE 11:** Mostre títulos, corpos e branches de ambos PRs. "Abro os PRs no GitHub? (sim/não)"
+
+### Se apenas API:
 1. Se há ADR → execute `/adr-pr`.
 2. Se não há ADR → componha título e corpo do PR manualmente.
-3. **GATE 8:** Mostre título, corpo e branch. "Abro o PR no GitHub? (sim/não)"
+3. **GATE 11:** Mostre título, corpo e branch. "Abro o PR no GitHub? (sim/não)"
 
 Após PR aberto:
 - Se ADR existe → atualize status para `Em Progresso` com URL do PR.
@@ -267,15 +351,19 @@ Após PR aberto:
 
 ---
 
-## Etapa 9 — FIM
+## Etapa 12 — FIM
 
 Resumo final:
 - Tarefa implementada: <descrição>
+- Escopo: <API / API + Frontend>
 - ADR: <caminho ou "não aplicável">
-- Arquivos criados/alterados: <lista>
-- Testes: <resultado>
-- Guards: <resultado de cada um>
-- PR: <URL ou "commitado localmente">
+- Arquivos criados/alterados (API): <lista>
+- Arquivos criados/alterados (Frontend): <lista> (se aplicável)
+- Testes API: <resultado>
+- Guards API: <resultado de cada um>
+- Guards Frontend: <resultado> (se aplicável)
+- PR API: <URL ou "commitado localmente">
+- PR Frontend: <URL ou "commitado localmente"> (se aplicável)
 
 ---
 
@@ -287,6 +375,8 @@ Resumo final:
 | Guard retorna VIOLAÇÃO | Corrija o código, re-execite o guard |
 | ADR validado como REVISAR | Volte ao architect com os gaps |
 | Testes com regressão | Corrija antes de avançar |
+| Build frontend com erro | Corrija antes de avançar |
+| Frontend guard retorna VIOLAÇÃO | Corrija o código frontend, re-execite o guard |
 | Usuário rejeita etapa | Volte à etapa anterior com as correções |
 
 ---
@@ -294,27 +384,75 @@ Resumo final:
 ## Exemplo de uso
 
 ```
-Usuário: /dev-pipeline implementar login com httpOnly cookies
+Usuário: /dev-pipeline implementar página de carteiras com saldo e histórico
 
 Pipeline: Entendido. Vou guiar esta tarefa do início ao fim.
 
 ETAPA 1 — RECEPÇÃO:
-  Pergunta: O cookie deve conter o JWT de acesso? Ou apenas um session ID que referencia o servidor?
-  [resposta do usuário]
-  Pergunta: O refresh token também deve ser httpOnly, ou só o access token?
-  [resposta do usuário]
-  Entendi que a tarefa é: Implementar autenticação com cookies httpOnly para JWT access token
-  e refresh token. Avanço para triagem?
+  Pergunta: O que a página deve mostrar? (saldo + tabela de transações)
+  Pergunta: Precisa de paginação? (sim, 20 por página)
+  Pergunta: Precisa de telas no frontend também? (SIM → pipeline unificada)
+  Entendi que a tarefa é: Criar endpoint de saldo + histórico E página frontend
+  com card de saldo e tabela de transações. Escopo: API + Frontend. Avanço para triagem?
 
 ETAPA 2 — TRIAGEM:
-  Classificação: Clean Architecture (toca autenticação)
-  Precisa de ADR: Sim (muda padrão de como tokens são entregues)
+  Classificação: Clean Architecture (toca ledger)
+  Frontend: Complexo (tabela + paginação + store)
+  Precisa de ADR: Sim (schema + endpoint + página complexa)
   Avanço?
 
 ETAPA 3A — ARCHITECT:
   [executa /adr-architect com contexto da tarefa]
-  ADR criado em docs/adr/0004-auth-httpOnly-cookies.md
+  ADR criado em docs/adr/0005-wallet-page.md
   Revise. Aprova para validação?
 
-...e assim por diante até o PR.
+ETAPA 3B — VALIDATOR:
+  [executa /adr-validator]
+  APROVA
+  Avanço para aprovação final?
+
+ETAPA 3C — APROVAÇÃO:
+  ADR aprovado. Avanço para planner?
+
+ETAPA 4 — TASK PLANNER:
+  [executa /task-planner]
+  Plano: 8 artefatos API + 6 artefatos Frontend
+  Avanço?
+
+ETAPA 5 — IMPLEMENTAR API:
+  5.1 Domain → gate
+  5.2 Application → gate
+  5.3 Infrastructure → gate
+  5.4 Presentation → gate
+
+ETAPA 6 — TESTES API:
+  pnpm test → verde
+
+ETAPA 7 — GUARDS API:
+  /arch-guard → CONFORME
+  /ledger-guard → CONFORME
+  /code-reviewer → PASS
+  /test-reviewer → PASS
+
+ETAPA 8 — IMPLEMENTAR FRONTEND:
+  [executa /frontend-executor]
+  Types → gate
+  Services + Hooks → gate
+  Components → gate
+  Pages → gate
+
+ETAPA 9 — BUILD/LINT FRONTEND:
+  pnpm build → ok
+  pnpm lint → ok
+
+ETAPA 10 — GUARDS FRONTEND:
+  [executa /frontend-guard]
+  CONFORME (FIN-001 ✓, UI-001 ✓, SEC-002 ✓)
+
+ETAPA 11 — PR:
+  PR API: feat/wallet-page-api
+  PR Frontend: feat/wallet-page-frontend
+
+ETAPA 12 — FIM:
+  Tarefa completa. 2 PRs abertos.
 ```

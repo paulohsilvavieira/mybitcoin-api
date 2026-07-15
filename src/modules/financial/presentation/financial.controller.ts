@@ -1,6 +1,6 @@
 import { Controller, Post, Body } from '@nestjs/common';
-import { ConfirmDepositUseCase } from '../application/confirm-deposit.usecase';
-import { ConfirmDepositInputDTO } from './dtos/confirm-deposit.dto';
+import { ConfirmDepositUseCase } from '@/modules/financial/application/confirm-deposit.usecase';
+import { ConfirmDepositInputDTO } from '@/modules/financial/presentation/dtos/confirm-deposit.dto';
 
 @Controller('financial')
 export class FinancialController {

@@ -1,7 +1,7 @@
-import { UnitOfWork } from '../../../shared/unit-of-work';
-import { DomainError } from '../../../shared/domain.error';
-import { LedgerEntry } from '../domain/ledger-entry.entity';
-import { ConfirmDepositInputDTO } from '../presentation/dtos/confirm-deposit.dto';
+import { UnitOfWork } from '@/shared/unit-of-work';
+import { DomainError } from '@/shared/domain.error';
+import { LedgerEntry } from '@/modules/financial/domain/ledger-entry.entity';
+import { ConfirmDepositInputDTO } from '@/modules/financial/presentation/dtos/confirm-deposit.dto';
 
 export class ConfirmDepositWithUowUseCase {
   constructor(private readonly uow: UnitOfWork) {}

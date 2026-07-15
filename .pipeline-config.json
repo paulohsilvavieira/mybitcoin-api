@@ -1,0 +1,13 @@
+{
+  "frontend": {
+    "path": "/home/paulohenrique/Developer/mybitcoin/mybitcoin-front",
+    "srcPath": "src",
+    "packageManager": "pnpm",
+    "commands": {
+      "dev": "pnpm dev",
+      "build": "pnpm build",
+      "lint": "pnpm lint",
+      "test": "pnpm test"
+    }
+  }
+}
