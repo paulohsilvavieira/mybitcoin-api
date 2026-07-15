@@ -4,6 +4,9 @@
 
 API de uma plataforma de criptomoedas real. Funcionalidades: autenticação/KYC, carteiras, ledger financeiro com dupla entrada, order book, matching engine, depósitos/saques Bitcoin on-chain.
 
+**Repositório relacionado:** `/home/paulohenrique/Developer/mybitcoin/mybitcoin-api` — esta API.
+**Frontend relacionado:** `/home/paulohenrique/Developer/mybitcoin/mybitcoin-front` — SPA React que consome esta API.
+
 ---
 
 ## Stack
@@ -204,8 +207,48 @@ Todos os guards: leem a documentação primeiro, depois analisam código, retorn
 
 | Skill | Comando | O que faz |
 |-------|---------|----------|
-| `task-planner` | `/task-planner` | Carrega docs relevantes, classifica CA vs simples, lista artefatos em ordem, define guards a executar — PARA para aprovação antes de implementar |
+| `task-planner` | `/task-planner` | Carrega docs relevantes, classifica CA vs simples, lista artefatos em ordem (API + Frontend), define guards a executar — PARA para aprovação antes de implementar |
 | `domain-modeler` | `/domain-modeler` | Modela entidade/VO/aggregate/event em DDD: determina tipo, define invariantes, projeta interface de repositório e domain events — PARA para aprovação antes de implementar |
+
+### Frontend (cross-project)
+
+| Skill | Comando | O que faz |
+|-------|---------|----------|
+| `frontend-executor` | `/frontend-executor` | Implementa código React no mybitcoin-front: types → services → stores → hooks → components → pages |
+| `frontend-guard` | `/frontend-guard` | Valida código frontend: invariantes (FIN-xxx, UI-xxx, DATA-xxx, SEC-xxx), padrões shadcn, a11y, mobile-first |
+
+---
+
+## Pipeline Unificada (API + Frontend)
+
+A pipeline de desenvolvimento suporta implementação cross-project. Config em `.pipeline-config.json`.
+
+Ao invocar `/dev-pipeline`, a API orquestra:
+
+1. **Etapas 1-7:** Backend API (NestJS) — recepção, triagem, ADR, planner, implementação, testes, guards
+2. **Etapas 8-10:** Frontend (React) — implementação, build/lint, guards frontend
+3. **Etapa 11:** Um PR por repositório (API + Frontend)
+
+Para desativar o frontend, responda "apenas API" na Etapa 1.
+
+### Configuração
+
+```json
+// .pipeline-config.json
+{
+  "frontend": {
+    "path": "/home/paulohenrique/Developer/mybitcoin/mybitcoin-front",
+    "srcPath": "src",
+    "packageManager": "pnpm",
+    "commands": {
+      "dev": "pnpm dev",
+      "build": "pnpm build",
+      "lint": "pnpm lint",
+      "test": "pnpm test"
+    }
+  }
+}
+```
 
 ---
 
