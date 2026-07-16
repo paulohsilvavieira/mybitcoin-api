@@ -4,6 +4,8 @@
 **Data:** 2026-06-03  
 **Autores:** Time de Backend
 
+> **⚠️ Superseded** — Este ADR foi substituído pelo ADR 0001 UnitOfWork (`docs/adr/0001-unit-of-work-pattern.md`). Mantido apenas como referência histórica. A infraestrutura de `DatabaseService` com `runInTransaction()` foi implementada, mas o padrão de uso por serviços evoluiu para o UnitOfWork para respeitar a Regra de Dependência da Arquitetura Limpa.
+
 ---
 
 ## Contexto
@@ -91,6 +93,8 @@ async function withTransaction<T>(
 ### Opção C — `DatabaseService` injetável com objeto `Transaction` explícito
 
 Um serviço NestJS que encapsula o pool e retorna um objeto de transação com ciclo de vida explícito, espelhando o padrão `startTransaction` / `commit` / `rollback` / `release`:
+
+> **Nota:** Na implementação real, a classe foi nomeada `PGTransactionControl` (`src/infrastructure/database/transaction.ts`) e o método `startTransaction()` não foi implementado no `DatabaseService`. O `DatabaseService` finalizou com apenas `runInTransaction()` — que encapsula o ciclo de vida da transação automaticamente.
 
 ```typescript
 // transaction.ts
@@ -270,11 +274,11 @@ export class AccountsService {
 
 | Ação | Caminho |
 |---|---|
-| Criar | `src/database/transaction.ts` — classe `Transaction` |
-| Criar | `src/database/database.service.ts` — `DatabaseService` com `startTransaction()` |
-| Criar | `src/database/database.service.spec.ts` |
-| Modificar | `src/database/database.module.ts` — exportar `DatabaseService` |
-| Convencionar | Repositórios: parâmetro `tx?: Transaction` em métodos de escrita |
+| Criar | `src/infrastructure/database/transaction.ts` — classe `PGTransactionControl` |
+| Criar | `src/infrastructure/database/database.service.ts` — `DatabaseService` com `runInTransaction()` |
+| Criar | `src/infrastructure/database/database.service.spec.ts` |
+| Modificar | `src/infrastructure/database/database.module.ts` — exportar `DatabaseService` |
+| Convencionar | Repositórios: aceitar `QueryExecutor` no construtor via UnitOfWork |
 
 ---
 
@@ -282,4 +286,4 @@ export class AccountsService {
 
 - [node-postgres — Transactions](https://node-postgres.com/features/transactions)
 - [node-postgres — Pooling](https://node-postgres.com/features/pooling)
-- Scripts de migração existentes: `src/database/scripts/run-migration.script.ts`
+- Scripts de migração existentes: `src/infrastructure/database/scripts/run-migration.script.ts`
