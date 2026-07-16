@@ -279,37 +279,58 @@ export class Satoshi {
 
 ## Transações atômicas sem vazar detalhes de infra
 
-O ADR 0001 define o padrão `DatabaseService` + `Transaction`. O desafio é: como os use cases usam transações sem importar PostgreSQL?
+O `DatabaseService` (definido no ADR anterior, agora em `docs/old-adrs/0001-atomic-transactions.md`) fornece `runInTransaction()` — que encapsula BEGIN/COMMIT/ROLLBACK. Mas usar `DatabaseService` diretamente nos use cases violaria a Regra de Dependência: o use case estaria acoplado à infraestrutura.
 
-A solução: um contrato de unidade de trabalho (Unit of Work):
+A solução é o UnitOfWork — definido no ADR 0001 (`docs/adr/0001-unit-of-work-pattern.md`):
 
 ```typescript
-// domain/unit-of-work.ts
+// shared/unit-of-work.ts
+// Interface tipada dos repositórios disponíveis dentro da transação
+export interface Repositories {
+  transactionRepo: TransactionRepository;
+  ledgerRepo: LedgerEntryRepository;
+}
+
 // Abstract class — existe no runtime, usada como token de injeção NestJS
 export abstract class UnitOfWork {
-  abstract run<T>(fn: (uow: UnitOfWork) => Promise<T>): Promise<T>
-  abstract readonly transactionRepository: TransactionRepository
-  abstract readonly ledgerRepository: LedgerRepository
+  abstract run<T>(fn: (repos: Repositories) => Promise<T>): Promise<T>;
 }
 
 // application/usecases/confirm-deposit.usecase.ts
-export class ConfirmDepositUseCase {
+export class ConfirmDepositWithUowUseCase {
   constructor(private readonly uow: UnitOfWork) {}
 
-  async execute(input: ConfirmDepositInput): Promise<void> {
-    await this.uow.run(async (uow) => {
-      const transaction = await uow.transactionRepository.findById(input.transactionId)
-      transaction.confirm(input.confirmations)
-      await uow.transactionRepository.save(transaction)
-      
-      const entry = LedgerEntry.credit(transaction.accountId, transaction.amount)
-      await uow.ledgerRepository.save(entry)
-    })
+  async execute(input: ConfirmDepositInputDTO): Promise<void> {
+    await this.uow.run(async ({ transactionRepo, ledgerRepo }) => {
+      const transaction = await transactionRepo.findById(input.transactionId);
+      if (!transaction) {
+        throw new TransactionNotFoundError(input.transactionId);
+      }
+      transaction.confirm();
+
+      const debit = LedgerEntry.create({
+        transactionId: transaction.id,
+        account: `EXCHANGE:TREASURY:${transaction.type.toUpperCase()}`,
+        type: 'debit',
+        amountSatoshi: transaction.amountSatoshi,
+      });
+
+      const credit = LedgerEntry.create({
+        transactionId: transaction.id,
+        account: `USER:${transaction.accountId}:${transaction.type.toUpperCase()}`,
+        type: 'credit',
+        amountSatoshi: transaction.amountSatoshi,
+      });
+
+      await transactionRepo.save(transaction);
+      await ledgerRepo.save(debit);
+      await ledgerRepo.save(credit);
+    });
   }
 }
 ```
 
-O use case não sabe que existe `BEGIN`/`COMMIT`. A implementação `PostgresUnitOfWork` cuida disso internamente usando o `DatabaseService` do ADR 0001.
+O use case não sabe que existe `BEGIN`/`COMMIT`. A implementação `PostgresUnitOfWork` (`src/infrastructure/database/unit-of-work-postgres.service.ts`) delega para `DatabaseService.runInTransaction()` internamente.
 
 ---
 

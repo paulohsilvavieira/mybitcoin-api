@@ -45,29 +45,29 @@ export abstract class UnitOfWork {
 
 ### 2. Infrastructure Layer
 
-Location: `src/infrastructure/database/unit-of-work.postgres.ts`
+Location: `src/infrastructure/database/unit-of-work-postgres.service.ts`
 
 ```typescript
 import { Injectable } from '@nestjs/common';
-import { UnitOfWork, Repositories } from '../../shared/unit-of-work';
-import { DatabaseService } from './database.service';
-import { PgTransactionRepository } from '../../modules/financial/infrastructure/persistence/pg-transaction.repository';
-import { PgLedgerEntryRepository } from '../../modules/financial/infrastructure/persistence/pg-ledger-entry.repository';
+import { UnitOfWork, Repositories } from '@/shared/unit-of-work';
+import { DatabaseService } from '@/infrastructure/database/database.service';
+import { PgTransactionRepository } from '@/modules/financial/infrastructure/persistence/pg-transaction.repository';
+import { PgLedgerEntryRepository } from '@/modules/financial/infrastructure/persistence/pg-ledger-entry.repository';
 
 @Injectable()
-export class PostgresUnitOfWork extends UnitOfWork {
-  constructor(private readonly db: DatabaseService) {
-    super();
-  }
+export class PostgresUnitOfWork implements UnitOfWork {
+  constructor(private readonly databaseService: DatabaseService) {}
 
   async run<T>(fn: (repos: Repositories) => Promise<T>): Promise<T> {
-    return this.db.runInTransaction(async (tx) => {
-      const repositories: Repositories = {
-        transactionRepo: new PgTransactionRepository(tx),
-        ledgerRepo: new PgLedgerEntryRepository(tx),
-      };
-      return fn(repositories);
-    });
+    return await this.databaseService.runInTransaction(
+      async (transactionDatabase) => {
+        const repositories: Repositories = {
+          transactionRepo: new PgTransactionRepository(transactionDatabase),
+          ledgerRepo: new PgLedgerEntryRepository(transactionDatabase),
+        };
+        return fn(repositories);
+      },
+    );
   }
 }
 ```
@@ -109,6 +109,8 @@ await this.uow.run(async ({ transactionRepo, ledgerRepo }) => {
 
 The fixed `Repositories` interface is the simplest approach. When a new repo is needed, add one line to the interface and one method to `PostgresUnitOfWork`.
 
+> **Nota:** Um arquivo anterior (`unit-of-work.postgres.ts`) com a versão que usava `extends UnitOfWork` existe no repositório mas não está conectado ao DI do NestJS. Deve ser removido para evitar confusão.
+
 ---
 
 ## Impact on Bounded Contexts
@@ -129,7 +131,7 @@ The fixed `Repositories` interface is the simplest approach. When a new repo is 
 - [x] `src/shared/unit-of-work.ts` — abstract UnitOfWork + Repositories interface
 
 ### 3. Infrastructure
-- [x] `src/infrastructure/database/unit-of-work.postgres.ts` — PostgresUnitOfWork
+- [x] `src/infrastructure/database/unit-of-work-postgres.service.ts` — PostgresUnitOfWork
 - [x] `src/infrastructure/database/database.module.ts` — register UnitOfWork
 
 ### 4. Application

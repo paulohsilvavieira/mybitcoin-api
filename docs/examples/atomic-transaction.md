@@ -1,5 +1,7 @@
 # Exemplo: Transação Atômica com `DatabaseService`
 
+> **⚠️ Padrão legado** — Este documento descreve o padrão do ADR anterior (`docs/old-adrs/0001-atomic-transactions.md`), onde repositórios aceitam `tx?: Transaction` como parâmetro de método. O padrão atual usa **UnitOfWork** (definido em `docs/adr/0001-unit-of-work-pattern.md`), onde repositórios recebem `QueryExecutor` no construtor via callback do `UnitOfWork.run()`. Para exemplos do padrão atual, verifique `src/modules/financial/application/confirm-deposit-with-uow.usecase.ts`.
+
 Cenário: criar uma conta (`accounts`) e registrar o evento de auditoria
 (`audit_accounts_logs`) na mesma transação. As duas escritas persistem juntas
 ou falham juntas.

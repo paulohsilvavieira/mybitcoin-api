@@ -37,8 +37,8 @@ src/
 │   │   ├── database.module.ts
 │   │   ├── database.service.ts
 │   │   ├── database.token.ts
-│   │   ├── transaction.ts
-│   │   ├── postgres.unit-of-work.ts
+│   │   ├── query-executor.ts
+│   │   ├── unit-of-work-postgres.service.ts
 │   │   └── migrations/
 │   │
 │   ├── bitcoin-rpc/
@@ -333,14 +333,16 @@ Ele nunca sabe que existe uma tabela `orders`.
 
 # Unit Of Work
 
-Existe apenas uma implementação.
+A implementação ativa é:
 
 ```text
 infrastructure/database
-    postgres.unit-of-work.ts
+    unit-of-work-postgres.service.ts
 ```
 
 Ela é utilizada por qualquer módulo que precise executar operações transacionais.
+
+> **Nota:** Um arquivo anterior (`unit-of-work.postgres.ts`) existe no repositório mas é código morto — não está conectado ao DI do NestJS. Deve ser removido.
 
 Fluxo:
 
@@ -521,9 +523,8 @@ graph TD
 
     subgraph "Infrastructure - Shared"
         UOW["UnitOfWork<br/>(abstract)"]
-        QE["QueryExecutor<br/>(interface)"]
+        QE["QueryExecutor<br/>(abstract)"]
         DBS[DatabaseService]
-        TX[Transaction]
     end
 
     subgraph "Infrastructure - Global"
@@ -547,8 +548,6 @@ graph TD
     DBModule -->|provides| DBS
     DBModule -->|provides| UOW
     DBS -->|wraps| Pool
-    DBS -->|creates| TX
-    TX -->|implements| QE
     DBS -->|implements| QE
 
     style Controller fill:#4CAF50,color:#fff
@@ -580,13 +579,11 @@ Controller (presentation/)
     ↓
 UseCase (application/)
     ↓
-UnitOfWork (infrastructure/shared/)
+UnitOfWork (shared/)
     ↓
 PgRepository (infrastructure/persistence/) ← dentro do módulo
     ↓
-QueryExecutor (interface)
-    ↓
-Transaction (dentro de runInTransaction)
+QueryExecutor (dentro de runInTransaction — PoolClient anonimo)
     ↓
 PostgreSQL
     ↓
