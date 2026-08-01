@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Client } from 'pg';
 
-const MIGRATIONS_DIR = path.resolve(__dirname, '..', '../migrations');
+const MIGRATIONS_DIR = path.resolve(__dirname, '../migrations');
 const DRY_RUN = process.env.DRY_RUN === 'true';
 
 function createClient(): Client {
