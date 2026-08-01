@@ -1,10 +1,7 @@
-import { LedgerEntryRepository } from '@/modules/financial/domain/repositories';
+import { LedgerEntryReadRepository } from '@/modules/financial/domain/repositories';
 import { LedgerEntry } from '@/modules/financial/domain/entities';
-import { QueryExecutor } from '@/infrastructure/database/query-executor';
-import {
-  saveLedgerEntryQuery,
-  findLedgerEntriesByTransactionIdQuery,
-} from '@/modules/financial/infrastructure/persistence/ledger-entry.sql';
+import { ReadQueryExecutor } from '@/infrastructure/database/read-query-executor';
+import { findLedgerEntriesByTransactionIdQuery } from '@/modules/financial/infrastructure/persistence/ledger-entry.sql';
 
 interface LedgerEntryRow {
   id: string;
@@ -15,19 +12,9 @@ interface LedgerEntryRow {
   created_at: Date;
 }
 
-export class PgLedgerEntryRepository implements LedgerEntryRepository {
-  constructor(private readonly db: QueryExecutor) {}
-
-  async save(entry: LedgerEntry): Promise<void> {
-    const { query, values } = saveLedgerEntryQuery({
-      id: entry.id,
-      transactionId: entry.transactionId,
-      account: entry.account,
-      type: entry.type,
-      amountSatoshi: entry.amountSatoshi.toString(),
-      createdAt: entry.createdAt,
-    });
-    await this.db.query(query, values);
+export class PgLedgerEntryReadRepository extends LedgerEntryReadRepository {
+  constructor(private readonly db: ReadQueryExecutor) {
+    super();
   }
 
   async findByTransactionId(transactionId: string): Promise<LedgerEntry[]> {

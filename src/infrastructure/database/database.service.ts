@@ -2,12 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 
 import { Pool, QueryResult, QueryResultRow } from 'pg';
 
-import { POOL_TOKEN } from '@/infrastructure/database/database.token';
+import { WRITE_POOL_TOKEN } from '@/infrastructure/database/database.token';
 import { QueryExecutor } from '@/infrastructure/database/query-executor';
 
 @Injectable()
 export class DatabaseService implements QueryExecutor {
-  constructor(@Inject(POOL_TOKEN) private readonly pool: Pool) {}
+  constructor(@Inject(WRITE_POOL_TOKEN) private readonly pool: Pool) {}
 
   query<T extends QueryResultRow = QueryResultRow>(
     sql: string,

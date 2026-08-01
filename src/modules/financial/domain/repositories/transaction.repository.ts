@@ -1,4 +1,4 @@
-import { Transaction } from '@/modules/financial/domain/transaction.entity';
+import { Transaction } from '@/modules/financial/domain/entities';
 
 export abstract class TransactionRepository {
   abstract findById(id: string): Promise<Transaction | null>;
