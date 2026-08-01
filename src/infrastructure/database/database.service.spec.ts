@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { QueryResult } from 'pg';
 import { DatabaseService } from '@/infrastructure/database/database.service';
-import { POOL_TOKEN } from '@/infrastructure/database/database.token';
+import { WRITE_POOL_TOKEN } from '@/infrastructure/database/database.token';
 
 const mockClient = {
   query: jest.fn(),
@@ -20,7 +20,10 @@ describe('DatabaseService', () => {
     jest.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [DatabaseService, { provide: POOL_TOKEN, useValue: mockPool }],
+      providers: [
+        DatabaseService,
+        { provide: WRITE_POOL_TOKEN, useValue: mockPool },
+      ],
     }).compile();
 
     service = module.get<DatabaseService>(DatabaseService);

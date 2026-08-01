@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-build-test:
+    name: Lint, Build & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+
+      - name: Unit tests
+        run: pnpm test
+
+  replication-integration-tests:
+    name: Replication Integration Tests (docker compose)
+    runs-on: ubuntu-latest
+    env:
+      DB_NAME: mybitcoin
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_REPLICATION_USER: replicator
+      DB_REPLICATION_PASSWORD: replicator_password
+      POSTGRES_PORT: 5432
+      POSTGRES_REPLICA_PORT: 5433
+      PGPASSWORD: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Start postgres-primary
+        run: docker compose up -d --wait postgres-primary
+
+      # Scenario from ADR 0003 (docs/adr/0003-read-write-database-replication.md):
+      # entrypoint-replica.sh must retry pg_basebackup in a loop until the
+      # primary becomes available, instead of crashing the container. Tested
+      # on the replica's first boot (genuinely empty volume), with the
+      # primary already stopped.
+      - name: "Scenario 1 — replica retries pg_basebackup until the primary comes back"
+        run: |
+          docker compose stop postgres-primary
+
+          # --no-deps is essential here: postgres-replica has `depends_on:
+          # postgres-primary condition: service_healthy` in the compose file,
+          # so an `up` without --no-deps would bring the primary back
+          # automatically before the replica even attempts pg_basebackup,
+          # masking the test.
+          docker compose up -d --no-deps postgres-replica
+          sleep 8
+
+          docker compose logs postgres-replica | grep -q "Waiting for the primary to become available" \
+            && echo "Replica is retrying pg_basebackup as expected." \
+            || (echo "Replica did not enter the expected retry loop."; docker compose logs postgres-replica; exit 1)
+
+          docker compose start postgres-primary
+          docker compose up -d --wait postgres-primary postgres-replica
+          echo "Replica completed pg_basebackup and became healthy after the primary came back."
+
+      # Scenario from ADR 0003: a write on the primary must show up on the
+      # replica after WAL propagation (streaming replication).
+      - name: "Scenario 2 — write on the primary shows up on the replica after propagation"
+        run: |
+          psql -h localhost -p "$POSTGRES_PORT" -U "$DB_USER" -d "$DB_NAME" -c \
+            "CREATE TABLE IF NOT EXISTS ci_replication_check (id serial PRIMARY KEY, value text);"
+          psql -h localhost -p "$POSTGRES_PORT" -U "$DB_USER" -d "$DB_NAME" -c \
+            "INSERT INTO ci_replication_check (value) VALUES ('replicated');"
+
+          for i in $(seq 1 15); do
+            RESULT=$(psql -h localhost -p "$POSTGRES_REPLICA_PORT" -U "$DB_USER" -d "$DB_NAME" -tAc \
+              "SELECT value FROM ci_replication_check WHERE value = 'replicated';" 2>/dev/null || true)
+            if [ "$RESULT" = "replicated" ]; then
+              echo "Data replicated successfully after ${i}s."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Data did not replicate to the replica within the expected time."
+          exit 1
+
+      # Scenario from ADR 0003: an unavailable replica must fail fast on
+      # reads (no automatic fallback to the primary), without affecting
+      # writes.
+      - name: "Scenario 3 — replica unavailable: reads fail, writes on the primary keep working"
+        run: |
+          docker compose stop postgres-replica
+
+          psql -h localhost -p "$POSTGRES_PORT" -U "$DB_USER" -d "$DB_NAME" -c \
+            "INSERT INTO ci_replication_check (value) VALUES ('write-with-replica-down');"
+          echo "Write on the primary worked with the replica down (expected)."
+
+          if psql -h localhost -p "$POSTGRES_REPLICA_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" 2>/dev/null; then
+            echo "Replica responded even while stopped — unexpected behavior."
+            exit 1
+          fi
+          echo "Read on the replica failed as expected (fail-fast, no fallback)."
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

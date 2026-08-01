@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { User } from '@/modules/identity/domain/entities/user.entity';
 import { Email } from '@/modules/identity/domain/value-objects/email.vo';
-import { UserRepository } from '@/modules/identity/domain/repositories/user.repository';
+import { UserRepository } from '@/modules/identity/domain/repositories';
 import { EmailService } from '@/modules/identity/domain/services/email.service';
 import { EmailAlreadyExistsError } from '@/modules/identity/domain/errors/email-already-exists.error';
 import { TermsNotAcceptedError } from '@/modules/identity/domain/errors/terms-not-accepted.error';
