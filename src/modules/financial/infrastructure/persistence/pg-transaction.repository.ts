@@ -1,5 +1,5 @@
-import { TransactionRepository } from '@/modules/financial/domain/transaction.repository';
-import { Transaction } from '@/modules/financial/domain/transaction.entity';
+import { TransactionRepository } from '@/modules/financial/domain/repositories';
+import { Transaction } from '@/modules/financial/domain/entities';
 import { QueryExecutor } from '@/infrastructure/database/query-executor';
 import {
   findTransactionByIdQuery,
