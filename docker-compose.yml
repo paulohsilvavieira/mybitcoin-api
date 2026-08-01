@@ -9,8 +9,10 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      DB_HOST: postgres
-      DB_PORT: 5432
+      DB_WRITE_HOST: postgres-primary
+      DB_WRITE_PORT: 5432
+      DB_READ_HOST: postgres-replica
+      DB_READ_PORT: 5432
       DB_NAME: ${DB_NAME:-mybitcoin}
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -19,20 +21,29 @@ services:
       - .:/app
       - /app/node_modules
     depends_on:
-      postgres:
+      postgres-replica:
         condition: service_healthy
     restart: unless-stopped
 
-  postgres:
+  postgres-primary:
     image: postgres:17-alpine
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=10
+      -c max_replication_slots=10
+      -c hot_standby=on
     environment:
       POSTGRES_DB: ${DB_NAME:-mybitcoin}
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      REPLICATION_USER: ${DB_REPLICATION_USER:-replicator}
+      REPLICATION_PASSWORD: ${DB_REPLICATION_PASSWORD:-replicator_password}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_primary_data:/var/lib/postgresql/data
+      - ./docker/postgres-primary/init-replication.sh:/docker-entrypoint-initdb.d/init-replication.sh:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-mybitcoin}"]
       interval: 5s
@@ -40,5 +51,28 @@ services:
       retries: 5
     restart: unless-stopped
 
+  postgres-replica:
+    image: postgres:17-alpine
+    environment:
+      PGUSER: ${DB_REPLICATION_USER:-replicator}
+      PGPASSWORD: ${DB_REPLICATION_PASSWORD:-replicator_password}
+      POSTGRES_PRIMARY_HOST: postgres-primary
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./docker/postgres-replica/entrypoint-replica.sh:/entrypoint-replica.sh:ro
+    entrypoint: ["/entrypoint-replica.sh"]
+    depends_on:
+      postgres-primary:
+        condition: service_healthy
+    ports:
+      - "${POSTGRES_REPLICA_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-mybitcoin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
 volumes:
-  postgres_data:
+  postgres_primary_data:
+  postgres_replica_data:
