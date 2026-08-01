@@ -203,6 +203,12 @@ Todos os guards: leem a documentação primeiro, depois analisam código, retorn
 | `test-writer` | `/test-writer` | Escreve testes (unit para entidades/use cases, integração para repositórios) |
 | `test-reviewer` | `/test-reviewer` | Revisa qualidade dos testes, retorna PASS ou ISSUES |
 
+### Documentação da API
+
+| Skill | Comando | O que faz |
+|-------|---------|----------|
+| `swagger-docs` | `/swagger-docs` | Documenta/atualiza anotações `@nestjs/swagger` de um controller — tags, exemplos de body de sucesso e de erro, usando `DomainErrorResponseDto` e as regras reais de status de `domain-error.filter.ts` |
+
 ### Planejamento e modelagem (use ANTES de codar)
 
 | Skill | Comando | O que faz |
