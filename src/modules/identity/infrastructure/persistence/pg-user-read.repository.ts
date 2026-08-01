@@ -1,5 +1,5 @@
-import { QueryExecutor } from '@/infrastructure/database/query-executor';
-import { UserRepository } from '@/modules/identity/domain/repositories';
+import { ReadQueryExecutor } from '@/infrastructure/database/read-query-executor';
+import { UserReadRepository } from '@/modules/identity/domain/repositories';
 import { User } from '@/modules/identity/domain/entities/user.entity';
 import { Email } from '@/modules/identity/domain/value-objects/email.vo';
 import {
@@ -9,11 +9,10 @@ import {
 import {
   findUserByIdQuery,
   findUserByEmailQuery,
-  saveUserQuery,
 } from '@/modules/identity/infrastructure/persistence/user.sql';
 
-export class PgUserRepository extends UserRepository {
-  constructor(private readonly db: QueryExecutor) {
+export class PgUserReadRepository extends UserReadRepository {
+  constructor(private readonly db: ReadQueryExecutor) {
     super();
   }
 
@@ -33,11 +32,5 @@ export class PgUserRepository extends UserRepository {
       return null;
     }
     return UserMapper.toDomain(result.rows[0]);
-  }
-
-  async save(user: User): Promise<void> {
-    const row = UserMapper.toRow(user);
-    const { query, values } = saveUserQuery(row);
-    await this.db.query(query, values);
   }
 }
