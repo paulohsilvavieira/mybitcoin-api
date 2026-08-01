@@ -9,6 +9,33 @@ jobs:
   lint-build-test:
     name: Lint, Build & Unit Tests
     runs-on: ubuntu-latest
+    # pnpm test não é mais "só unit" — módulos podem ter specs de integração
+    # de repositório contra banco real (ex: pg-session.repository.spec.ts),
+    # seguindo o mesmo padrão que já existia no projeto antes deste job
+    # existir. Em vez de segregar esses specs num job separado (não há hoje
+    # convenção de nomenclatura/config de jest para isso), sobe um postgres
+    # de serviço aqui — mais simples e evita duplicar setup do job de
+    # réplica, que testa cenário diferente (replicação em si).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: mybitcoin
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mybitcoin"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: mybitcoin
+      DB_USER: postgres
+      DB_PASSWORD: postgres
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,7 +57,10 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Unit tests
+      - name: Run migrations
+        run: pnpm migration:run
+
+      - name: Unit & integration tests
         run: pnpm test
 
   replication-integration-tests:
