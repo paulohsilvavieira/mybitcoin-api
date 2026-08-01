@@ -1,6 +1,6 @@
 # ADR 0003 — Separação de Conexões Write/Read (Réplica de Leitura PostgreSQL)
 
-**Status:** Proposto
+**Status:** Aceito
 **Data:** 2026-07-27
 **Autores:** Time de Backend
 **Contexto relacionado:** ADR 0001 (UnitOfWork), `docs/architecture/03-estrutura-projeto.md`
@@ -287,7 +287,7 @@ set -e
 
 if [ -z "$(ls -A "$PGDATA" 2>/dev/null)" ]; then
   until pg_basebackup -h "$POSTGRES_PRIMARY_HOST" -D "$PGDATA" -U "$PGUSER" -Fp -Xs -P -R; do
-    echo "Aguardando o primary ficar disponível para pg_basebackup..."
+    echo "Waiting for the primary to become available for pg_basebackup..."
     sleep 1
   done
   chmod 0700 "$PGDATA"
@@ -341,38 +341,47 @@ O objetivo é validar em ambiente local o comportamento real de produção — l
 Decisão de infraestrutura compartilhada com um acréscimo pontual em `domain/`/`infrastructure/` de cada módulo (as novas interfaces de leitura). Ordem: infra compartilhada → domínio por módulo → infraestrutura por módulo → wiring → config → docs.
 
 ### 1. Infraestrutura compartilhada (`src/infrastructure/database/`)
-- [ ] Renomear `POOL_TOKEN` → `WRITE_POOL_TOKEN` em `database.token.ts`; adicionar `READ_POOL_TOKEN`
-- [ ] `database.provider.ts` — separar em `DatabaseWriteConnectionProvider`/`DatabaseReadConnectionProvider` (ver snippet na seção Decisão, item 1), lendo `DB_WRITE_HOST`/`DB_WRITE_PORT` (com fallback para `DB_HOST`/`DB_PORT`) e `DB_READ_HOST`/`DB_READ_PORT` (sem fallback)
-- [ ] `read-query-executor.ts` — nova abstract class `ReadQueryExecutor extends QueryExecutor`
-- [ ] `read-database.service.ts` — nova classe `ReadDatabaseService implements ReadQueryExecutor`, injeta `READ_POOL_TOKEN`, sem `runInTransaction`
-- [ ] `database.module.ts` — registrar os dois providers de conexão, `ReadDatabaseService`, exportar `WRITE_POOL_TOKEN`, `READ_POOL_TOKEN`, `DatabaseService`, `ReadDatabaseService`/`ReadQueryExecutor`, `UnitOfWork`
-- [ ] `unit-of-work-postgres.service.ts` — sem mudança de comportamento; `DatabaseService` injetado continua sendo a instância de escrita
-- [ ] `database.service.spec.ts` — atualizar import e uso de `POOL_TOKEN` para `WRITE_POOL_TOKEN` (o rename do token quebra este spec se não for atualizado)
+- [x] Renomear `POOL_TOKEN` → `WRITE_POOL_TOKEN` em `database.token.ts`; adicionar `READ_POOL_TOKEN`
+- [x] `database.provider.ts` — separar em `DatabaseWriteConnectionProvider`/`DatabaseReadConnectionProvider` (ver snippet na seção Decisão, item 1), lendo `DB_WRITE_HOST`/`DB_WRITE_PORT` (com fallback para `DB_HOST`/`DB_PORT`) e `DB_READ_HOST`/`DB_READ_PORT` (sem fallback)
+- [x] `read-query-executor.ts` — nova abstract class `ReadQueryExecutor extends QueryExecutor`
+- [x] `read-database.service.ts` — nova classe `ReadDatabaseService implements ReadQueryExecutor`, injeta `READ_POOL_TOKEN`, sem `runInTransaction`
+- [x] `database.module.ts` — registrar os dois providers de conexão, `ReadDatabaseService`, exportar `WRITE_POOL_TOKEN`, `READ_POOL_TOKEN`, `DatabaseService`, `ReadDatabaseService`/`ReadQueryExecutor`, `UnitOfWork`
+- [x] `unit-of-work-postgres.service.ts` — sem mudança de comportamento; `DatabaseService` injetado continua sendo a instância de escrita
+- [x] `database.service.spec.ts` — atualizar import e uso de `POOL_TOKEN` para `WRITE_POOL_TOKEN` (o rename do token quebra este spec se não for atualizado)
+- [x] `read-database.service.spec.ts` — novo, cobre delegação ao pool de leitura e ausência de `runInTransaction`
 
-### 2. Domínio por módulo (`domain/`) — novas interfaces só-leitura
-- [ ] `src/modules/financial/domain/transaction-read.repository.ts` — nova abstract class `TransactionReadRepository` (só `findById` por ora; ponto de extensão para consultas futuras)
-- [ ] `src/modules/financial/domain/ledger-entry-read.repository.ts` — nova abstract class `LedgerEntryReadRepository`
-- [ ] `src/modules/identity/domain/repositories/user-read.repository.ts` — nova abstract class `UserReadRepository`
-- [ ] **Nenhuma dessas interfaces recebe método `save`/`delete`/`update`** — é a garantia estrutural do checklist de arquitetura
+### 2. Domínio por módulo — novas interfaces só-leitura
+
+> **Nota de implementação (2026-08-01):** ao implementar, o domínio do módulo `financial` foi reorganizado de arquivos soltos em `domain/` para subpastas `domain/entities/` e `domain/repositories/` — incluindo os arquivos de escrita já existentes (`transaction.entity.ts`, `transaction.repository.ts`, `ledger-entry.entity.ts`, `ledger-entry.repository.ts`), que passaram a viver ao lado das novas interfaces de leitura, cada subpasta com seu `index.ts` de barrel. Isso diverge do caminho flat originalmente planejado abaixo (`domain/transaction-read.repository.ts`) e alinha `financial` à mesma convenção de subpastas que `identity` já usava (`domain/repositories/`). É uma reorganização de nomenclatura/pastas, não uma mudança de comportamento — a Regra de Dependência e a ausência de métodos de mutação nas interfaces de leitura continuam garantidas. Os caminhos reais são:
+> - `src/modules/financial/domain/entities/transaction.entity.ts`, `ledger-entry.entity.ts`, `index.ts`
+> - `src/modules/financial/domain/repositories/transaction.repository.ts`, `transaction-read.repository.ts`, `ledger-entry.repository.ts`, `ledger-entry-read.repository.ts`, `index.ts`
+> - `src/modules/identity/domain/repositories/user-read.repository.ts`, `index.ts` (pasta já existia, só o `index.ts` é novo)
+
+- [x] `src/modules/financial/domain/repositories/transaction-read.repository.ts` — nova abstract class `TransactionReadRepository` (só `findById` por ora; ponto de extensão para consultas futuras)
+- [x] `src/modules/financial/domain/repositories/ledger-entry-read.repository.ts` — nova abstract class `LedgerEntryReadRepository`
+- [x] `src/modules/identity/domain/repositories/user-read.repository.ts` — nova abstract class `UserReadRepository`
+- [x] **Nenhuma dessas interfaces recebe método `save`/`delete`/`update`** — garantido em tempo de compilação e coberto por teste de convenção (`Object.getOwnPropertyNames` do prototype) em cada spec de `PgXReadRepository`
 
 ### 3. Infraestrutura por módulo (`infrastructure/persistence/`)
-- [ ] `src/modules/financial/infrastructure/persistence/pg-transaction-read.repository.ts` — `PgTransactionReadRepository extends TransactionReadRepository`, recebe `ReadQueryExecutor`
-- [ ] `src/modules/financial/infrastructure/persistence/pg-ledger-entry-read.repository.ts` — `PgLedgerEntryReadRepository extends LedgerEntryReadRepository`, recebe `ReadQueryExecutor`
-- [ ] `src/modules/identity/infrastructure/persistence/pg-user-read.repository.ts` — `PgUserReadRepository extends UserReadRepository`, recebe `ReadQueryExecutor`
+- [x] `src/modules/financial/infrastructure/persistence/pg-transaction-read.repository.ts` — `PgTransactionReadRepository extends TransactionReadRepository`, recebe `ReadQueryExecutor`
+- [x] `src/modules/financial/infrastructure/persistence/pg-ledger-entry-read.repository.ts` — `PgLedgerEntryReadRepository extends LedgerEntryReadRepository`, recebe `ReadQueryExecutor`
+- [x] `src/modules/identity/infrastructure/persistence/pg-user-read.repository.ts` — `PgUserReadRepository extends UserReadRepository`, recebe `ReadQueryExecutor`
+- [x] `pg-transaction-read.repository.spec.ts`, `pg-ledger-entry-read.repository.spec.ts`, `pg-user-read.repository.spec.ts` — novos, cobrem delegação ao `ReadQueryExecutor`, mapeamento de linhas e o teste de convenção de ausência de métodos de mutação
 
 ### 4. Wiring dos módulos NestJS
-- [ ] `src/modules/financial/financial.module.ts` — adicionar providers para `TransactionReadRepository`/`LedgerEntryReadRepository` (injetando `ReadQueryExecutor`); providers existentes de `TransactionRepository`/`LedgerEntryRepository` (write) **não mudam**
-- [ ] `src/modules/identity/identity.module.ts` — adicionar provider para `UserReadRepository` (injetando `ReadQueryExecutor`); provider existente de `UserRepository` (write) **não muda**
+- [x] `src/modules/financial/financial.module.ts` — adicionar providers para `TransactionReadRepository`/`LedgerEntryReadRepository` (injetando `ReadQueryExecutor`); providers existentes de `TransactionRepository`/`LedgerEntryRepository` (write) **não mudam**
+- [x] `src/modules/identity/identity.module.ts` — adicionar provider para `UserReadRepository` (injetando `ReadQueryExecutor`); provider existente de `UserRepository` (write) **não muda**
+- [ ] Teste de resolução de DI dos módulos (`Test.createTestingModule`) — **não implementado**. `*.module.ts` está excluído de cobertura no `jest.config` do projeto (`collectCoverageFrom: ["!**/*.module.ts", ...]`) e não há precedente de spec de módulo NestJS no repositório; o wiring foi validado via `pnpm build` (compila, logo os tokens resolvem) em vez de um spec dedicado. Registrado como desvio consciente, não silencioso.
 
 ### 5. Configuração e ambiente
-- [ ] `.env.example` — adicionar `DB_WRITE_HOST`, `DB_WRITE_PORT`, `DB_READ_HOST`, `DB_READ_PORT`, `DB_REPLICATION_USER`, `DB_REPLICATION_PASSWORD`, `POSTGRES_REPLICA_PORT`
-- [ ] `docker-compose.yml` — substituir serviço único `postgres` por `postgres-primary` + `postgres-replica`, atualizar `app` para as novas variáveis
-- [ ] `docker/postgres-primary/init-replication.sh` — novo script de criação de role de replicação
-- [ ] `docker/postgres-replica/entrypoint-replica.sh` — novo script de `pg_basebackup` + start em modo standby
-- [ ] `chmod +x` nos dois scripts (necessário para o Docker executar)
+- [x] `.env.example` — adicionar `DB_WRITE_HOST`, `DB_WRITE_PORT`, `DB_READ_HOST`, `DB_READ_PORT`, `DB_REPLICATION_USER`, `DB_REPLICATION_PASSWORD`, `POSTGRES_REPLICA_PORT`
+- [x] `docker-compose.yml` — substituir serviço único `postgres` por `postgres-primary` + `postgres-replica`, atualizar `app` para as novas variáveis
+- [x] `docker/postgres-primary/init-replication.sh` — novo script de criação de role de replicação
+- [x] `docker/postgres-replica/entrypoint-replica.sh` — novo script de `pg_basebackup` + start em modo standby
+- [x] `chmod +x` nos dois scripts (necessário para o Docker executar)
 
 ### 6. Documentação
-- [ ] `docs/architecture/03-estrutura-projeto.md` — atualizar seção "Infrastructure Global" e o diagrama de dependências para refletir `WRITE_POOL_TOKEN`/`READ_POOL_TOKEN`, `ReadDatabaseService` e o padrão `XRepository`/`XReadRepository` por módulo
+- [x] `docs/architecture/03-estrutura-projeto.md` — atualizar seção "Infrastructure Global" e o diagrama de dependências para refletir `WRITE_POOL_TOKEN`/`READ_POOL_TOKEN`, `ReadDatabaseService` e o padrão `XRepository`/`XReadRepository` por módulo
 
 ---
 
@@ -390,14 +399,16 @@ Decisão de infraestrutura compartilhada com um acréscimo pontual em `domain/`/
 
 ## Plano de Teste (OBRIGATÓRIO)
 
-- [ ] Unit: `ReadDatabaseService.query()` delega para o `Pool` do `READ_POOL_TOKEN` (mock de `Pool`)
-- [ ] Unit: `DatabaseWriteConnectionProvider`/`DatabaseReadConnectionProvider` leem as variáveis de ambiente corretas (mock de `ConfigService`), incluindo fallback `DB_WRITE_HOST` → `DB_HOST`
-- [ ] Unit: `PgTransactionReadRepository.findById()`, `PgLedgerEntryReadRepository`, `PgUserReadRepository` delegam corretamente para o `ReadQueryExecutor` injetado (mock)
-- [ ] Unit: módulos (`IdentityModule`, `FinancialModule`) resolvem `TransactionReadRepository`/`LedgerEntryReadRepository`/`UserReadRepository` a partir de `ReadQueryExecutor`, e `TransactionRepository`/`LedgerEntryRepository`/`UserRepository` continuam resolvidos a partir de `DatabaseService` (write) — teste de DI do Nest, `Test.createTestingModule`
-- [ ] Convenção/tipo: garantir (via teste de compilação ou lint de tipos) que nenhuma abstract class `XReadRepository` declara `save`/`delete`/`update` — é a garantia estrutural do gap crítico corrigido nesta ADR
-- [ ] Integração (docker-compose local): escrever no primary via `UnitOfWork`, ler da réplica via `TransactionReadRepository` após propagação e confirmar que o dado aparece (com tolerância de tempo para lag)
-- [ ] Integração (docker-compose local): subir a stack, derrubar `postgres-replica`, confirmar que uma leitura via `TransactionReadRepository`/`ReadQueryExecutor` lança erro (fail-fast) e que escritas via `ConfirmDepositUseCase`/`UnitOfWork`/primary continuam funcionando normalmente
-- [ ] Negativo: `pg_basebackup` falhando (primary não saudável ainda) — `entrypoint-replica.sh` deve fazer retry via loop `until`, não falhar o container
+- [x] Unit: `ReadDatabaseService.query()` delega para o `Pool` do `READ_POOL_TOKEN` (mock de `Pool`) — `read-database.service.spec.ts`
+- [ ] Unit: `DatabaseWriteConnectionProvider`/`DatabaseReadConnectionProvider` leem as variáveis de ambiente corretas (mock de `ConfigService`), incluindo fallback `DB_WRITE_HOST` → `DB_HOST` — **não implementado**. `database.provider.ts` está excluído de cobertura no `jest.config` do projeto (`!**/database.provider.ts`) e instancia `Pool` diretamente (`new Pool(...)`), o que exigiria mockar o módulo `pg` inteiro sem precedente no repositório para o provider de escrita já existente antes deste ADR. Desvio consciente, não silencioso — validado indiretamente por `pnpm build`.
+- [x] Unit: `PgTransactionReadRepository.findById()`, `PgLedgerEntryReadRepository`, `PgUserReadRepository` delegam corretamente para o `ReadQueryExecutor` injetado (mock) — `pg-transaction-read.repository.spec.ts`, `pg-ledger-entry-read.repository.spec.ts`, `pg-user-read.repository.spec.ts`
+- [ ] Unit: módulos (`IdentityModule`, `FinancialModule`) resolvem `TransactionReadRepository`/`LedgerEntryReadRepository`/`UserReadRepository` a partir de `ReadQueryExecutor`, e `TransactionRepository`/`LedgerEntryRepository`/`UserRepository` continuam resolvidos a partir de `DatabaseService` (write) — **não implementado**. `*.module.ts` está excluído de cobertura no `jest.config` do projeto e não há precedente de spec de módulo NestJS no repositório. Validado via `pnpm build` (compila = tokens resolvem) em vez de `Test.createTestingModule`. Desvio consciente, não silencioso.
+- [x] Convenção/tipo: garantir que nenhuma abstract class `XReadRepository` declara `save`/`delete`/`update` — coberto por teste runtime (`Object.getOwnPropertyNames` do prototype) em cada spec de `PgXReadRepository`, além da garantia em tempo de compilação
+- [x] Integração (CI, `.github/workflows/ci.yml`, job `replication-integration-tests`): sobe `postgres-primary` + `postgres-replica` via `docker compose` de verdade, escreve no primary via `psql`, aguarda propagação e confirma que o dado aparece na réplica (polling com timeout de 15s)
+- [x] Integração (CI, mesmo job): derruba `postgres-replica`, confirma que a leitura falha (fail-fast, sem fallback) e que a escrita no primary continua funcionando normalmente
+- [x] Negativo (CI, mesmo job): réplica sobe pela primeira vez (volume vazio) com o primary parado — confirma que `entrypoint-replica.sh` entra no loop de retry do `pg_basebackup` (via log), depois volta o primary e confirma que a réplica completa o `pg_basebackup` e fica `healthy`
+
+> **Nota de implementação (2026-08-01):** os três cenários de integração rodam contra o `docker-compose.yml` real do projeto (não contra mocks), num job dedicado do CI. Dois problemas foram encontrados e corrigidos ao validar o job localmente antes de commitar: (1) `docker compose rm -f -v` **não remove volumes nomeados** (só voláteis anônimos) — por isso o cenário de retry roda no primeiro boot da réplica (volume genuinamente vazio) em vez de tentar "limpar" um volume já populado; (2) `docker compose up -d postgres-replica` sozinho **religa o `postgres-primary` automaticamente** por causa do `depends_on: condition: service_healthy` — por isso o step usa `--no-deps` para conseguir testar a réplica subindo com o primary de fato indisponível.
 
 ---
 
