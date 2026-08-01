@@ -1,5 +1,5 @@
 import { Session } from '@/modules/identity/domain/entities/session.entity';
-import { SessionRepository } from '@/modules/identity/domain/repositories/session.repository';
+import { SessionReadRepository } from '@/modules/identity/domain/repositories/session-read.repository';
 
 export interface ListActiveSessionsInput {
   userId: string;
@@ -10,12 +10,14 @@ export interface ListActiveSessionsOutput {
 }
 
 export class ListActiveSessions {
-  constructor(private readonly sessionRepo: SessionRepository) {}
+  constructor(private readonly sessionReadRepo: SessionReadRepository) {}
 
   async execute(
     input: ListActiveSessionsInput,
   ): Promise<ListActiveSessionsOutput> {
-    const sessions = await this.sessionRepo.findActiveByUserId(input.userId);
+    const sessions = await this.sessionReadRepo.findActiveByUserId(
+      input.userId,
+    );
     return { sessions };
   }
 }
