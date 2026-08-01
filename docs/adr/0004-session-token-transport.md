@@ -1,7 +1,7 @@
 # ADR 0004 — Transporte de Sessão via Cookie httpOnly
 
-**Status:** Em Progresso
-**PR:** https://github.com/paulohsilvavieira/mybitcoin-api/pull/4
+**Status:** Implementado
+**PR:** https://github.com/paulohsilvavieira/mybitcoin-api/pull/4 (mergeado)
 **Data:** 2026-07-27
 **Autores:** Time de Backend
 **Contexto relacionado:** ADR 0002 (Identity: Cadastro de Usuários)
