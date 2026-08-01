@@ -10,10 +10,12 @@ import { RevokeSession } from '@/modules/identity/application/revoke-session.use
 import { RevokeAllSessions } from '@/modules/identity/application/revoke-all-sessions.usecase';
 import { PgUserRepository } from '@/modules/identity/infrastructure/persistence/pg-user.repository';
 import { PgSessionRepository } from '@/modules/identity/infrastructure/persistence/pg-session.repository';
+import { PgSessionReadRepository } from '@/modules/identity/infrastructure/persistence/pg-session-read.repository';
 import {
   UserRepository,
   UserReadRepository,
   SessionRepository,
+  SessionReadRepository,
 } from '@/modules/identity/domain/repositories';
 import { PgUserReadRepository } from '@/modules/identity/infrastructure/persistence/pg-user-read.repository';
 import { EmailService } from '@/modules/identity/domain/services/email.service';
@@ -38,6 +40,12 @@ import * as bcrypt from 'bcrypt';
       provide: UserReadRepository,
       useFactory: (readDb: ReadQueryExecutor) =>
         new PgUserReadRepository(readDb),
+      inject: [ReadQueryExecutor],
+    },
+    {
+      provide: SessionReadRepository,
+      useFactory: (readDb: ReadQueryExecutor) =>
+        new PgSessionReadRepository(readDb),
       inject: [ReadQueryExecutor],
     },
     {
@@ -72,9 +80,9 @@ import * as bcrypt from 'bcrypt';
     },
     {
       provide: ListActiveSessions,
-      useFactory: (sessionRepo: SessionRepository) =>
-        new ListActiveSessions(sessionRepo),
-      inject: [SessionRepository],
+      useFactory: (sessionReadRepo: SessionReadRepository) =>
+        new ListActiveSessions(sessionReadRepo),
+      inject: [SessionReadRepository],
     },
     {
       provide: RevokeSession,
