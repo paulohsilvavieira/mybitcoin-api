@@ -6,6 +6,7 @@ import {
 import { DatabaseService } from '@/infrastructure/database/database.service';
 import { ReadDatabaseService } from '@/infrastructure/database/read-database.service';
 import { ReadQueryExecutor } from '@/infrastructure/database/read-query-executor';
+import { QueryExecutor } from '@/infrastructure/database/query-executor';
 import {
   READ_POOL_TOKEN,
   WRITE_POOL_TOKEN,
@@ -25,6 +26,10 @@ import { PostgresUnitOfWork } from '@/infrastructure/database/unit-of-work-postg
       useExisting: ReadDatabaseService,
     },
     {
+      provide: QueryExecutor,
+      useExisting: DatabaseService,
+    },
+    {
       provide: UnitOfWork,
       useClass: PostgresUnitOfWork,
     },
@@ -35,6 +40,7 @@ import { PostgresUnitOfWork } from '@/infrastructure/database/unit-of-work-postg
     DatabaseService,
     ReadDatabaseService,
     ReadQueryExecutor,
+    QueryExecutor,
     UnitOfWork,
   ],
 })
