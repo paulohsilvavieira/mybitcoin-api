@@ -10,10 +10,15 @@ import { RevokeSession } from '@/modules/identity/application/revoke-session.use
 import { RevokeAllSessions } from '@/modules/identity/application/revoke-all-sessions.usecase';
 import { PgUserRepository } from '@/modules/identity/infrastructure/persistence/pg-user.repository';
 import { PgSessionRepository } from '@/modules/identity/infrastructure/persistence/pg-session.repository';
-import { UserRepository } from '@/modules/identity/domain/repositories/user.repository';
-import { SessionRepository } from '@/modules/identity/domain/repositories/session.repository';
+import {
+  UserRepository,
+  UserReadRepository,
+  SessionRepository,
+} from '@/modules/identity/domain/repositories';
+import { PgUserReadRepository } from '@/modules/identity/infrastructure/persistence/pg-user-read.repository';
 import { EmailService } from '@/modules/identity/domain/services/email.service';
 import { QueryExecutor } from '@/infrastructure/database/query-executor';
+import { ReadQueryExecutor } from '@/infrastructure/database/read-query-executor';
 import * as bcrypt from 'bcrypt';
 
 @Module({
@@ -28,6 +33,12 @@ import * as bcrypt from 'bcrypt';
       provide: SessionRepository,
       useFactory: (db: QueryExecutor) => new PgSessionRepository(db),
       inject: [QueryExecutor],
+    },
+    {
+      provide: UserReadRepository,
+      useFactory: (readDb: ReadQueryExecutor) =>
+        new PgUserReadRepository(readDb),
+      inject: [ReadQueryExecutor],
     },
     {
       provide: EmailService,

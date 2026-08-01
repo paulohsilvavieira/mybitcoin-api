@@ -1,5 +1,7 @@
-import { TransactionRepository } from '@/modules/financial/domain/transaction.repository';
-import { LedgerEntryRepository } from '@/modules/financial/domain/ledger-entry.repository';
+import {
+  TransactionRepository,
+  LedgerEntryRepository,
+} from '@/modules/financial/domain/repositories';
 
 export interface Repositories {
   transactionRepo: TransactionRepository;

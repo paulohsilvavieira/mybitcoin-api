@@ -1,7 +1,9 @@
 import { DomainError } from '@/shared/domain.error';
-import { TransactionRepository } from '@/modules/financial/domain/transaction.repository';
-import { LedgerEntryRepository } from '@/modules/financial/domain/ledger-entry.repository';
-import { LedgerEntry } from '@/modules/financial/domain/ledger-entry.entity';
+import {
+  TransactionRepository,
+  LedgerEntryRepository,
+} from '@/modules/financial/domain/repositories';
+import { LedgerEntry } from '@/modules/financial/domain/entities';
 import { ConfirmDepositInputDTO } from '@/modules/financial/presentation/dtos/confirm-deposit.dto';
 
 export class ConfirmDepositUseCase {

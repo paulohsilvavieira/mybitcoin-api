@@ -1,6 +1,6 @@
 import { UnitOfWork } from '@/shared/unit-of-work';
 import { DomainError } from '@/shared/domain.error';
-import { LedgerEntry } from '@/modules/financial/domain/ledger-entry.entity';
+import { LedgerEntry } from '@/modules/financial/domain/entities';
 import { ConfirmDepositInputDTO } from '@/modules/financial/presentation/dtos/confirm-deposit.dto';
 
 export class ConfirmDepositWithUowUseCase {
