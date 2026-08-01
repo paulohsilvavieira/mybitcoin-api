@@ -1,20 +1,41 @@
 import { Global, Module } from '@nestjs/common';
-import { DatabaseConnectionProvider } from '@/infrastructure/database/database.provider';
+import {
+  DatabaseReadConnectionProvider,
+  DatabaseWriteConnectionProvider,
+} from '@/infrastructure/database/database.provider';
 import { DatabaseService } from '@/infrastructure/database/database.service';
-import { POOL_TOKEN } from '@/infrastructure/database/database.token';
+import { ReadDatabaseService } from '@/infrastructure/database/read-database.service';
+import { ReadQueryExecutor } from '@/infrastructure/database/read-query-executor';
+import {
+  READ_POOL_TOKEN,
+  WRITE_POOL_TOKEN,
+} from '@/infrastructure/database/database.token';
 import { UnitOfWork } from '@/shared/unit-of-work';
 import { PostgresUnitOfWork } from '@/infrastructure/database/unit-of-work-postgres.service';
 
 @Global()
 @Module({
   providers: [
-    DatabaseConnectionProvider,
+    DatabaseWriteConnectionProvider,
+    DatabaseReadConnectionProvider,
     DatabaseService,
+    ReadDatabaseService,
+    {
+      provide: ReadQueryExecutor,
+      useExisting: ReadDatabaseService,
+    },
     {
       provide: UnitOfWork,
       useClass: PostgresUnitOfWork,
     },
   ],
-  exports: [POOL_TOKEN, DatabaseService, UnitOfWork],
+  exports: [
+    WRITE_POOL_TOKEN,
+    READ_POOL_TOKEN,
+    DatabaseService,
+    ReadDatabaseService,
+    ReadQueryExecutor,
+    UnitOfWork,
+  ],
 })
 export class DatabaseModule {}
