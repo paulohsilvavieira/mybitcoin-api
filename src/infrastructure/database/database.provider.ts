@@ -12,9 +12,7 @@ export const DatabaseWriteConnectionProvider: FactoryProvider = {
   useFactory: (config: ConfigService) =>
     new Pool({
       host: config.get<string>('DB_WRITE_HOST') ?? config.getOrThrow('DB_HOST'),
-      port:
-        config.get<number>('DB_WRITE_PORT') ??
-        config.getOrThrow<number>('DB_PORT'),
+      port: config.get<number>('DB_WRITE_PORT'),
       database: config.getOrThrow('DB_NAME'),
       user: config.getOrThrow('DB_USER'),
       password: config.getOrThrow('DB_PASSWORD'),

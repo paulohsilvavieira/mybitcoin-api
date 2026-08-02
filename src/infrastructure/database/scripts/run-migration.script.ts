@@ -1,15 +1,20 @@
-import 'dotenv/config';
+import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Client } from 'pg';
+
+dotenv.config({
+  path: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
+  quiet: true,
+});
 
 const MIGRATIONS_DIR = path.resolve(__dirname, '../migrations');
 const DRY_RUN = process.env.DRY_RUN === 'true';
 
 function createClient(): Client {
   return new Client({
-    host: process.env.DB_HOST,
-    port: Number(process.env.DB_PORT),
+    host: process.env.DB_WRITE_HOST ?? process.env.DB_HOST,
+    port: Number(process.env.DB_WRITE_PORT ?? process.env.DB_PORT),
     database: process.env.DB_NAME,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,

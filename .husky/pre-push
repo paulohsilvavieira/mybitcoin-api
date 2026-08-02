@@ -1,2 +1,5 @@
+pnpm run prepare:test
+
 pnpm test:cov --passWithNoTests
+
 pnpm build
