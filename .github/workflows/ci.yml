@@ -65,8 +65,8 @@ jobs:
       DB_PASSWORD: postgres
       DB_REPLICATION_USER: replicator
       DB_REPLICATION_PASSWORD: replicator_password
-      POSTGRES_PORT: 5432
-      POSTGRES_REPLICA_PORT: 5433
+      POSTGRES_PORT: 5434
+      POSTGRES_REPLICA_PORT: 5435
       PGPASSWORD: postgres
     steps:
       - name: Checkout
