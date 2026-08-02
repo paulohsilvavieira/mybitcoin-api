@@ -54,6 +54,15 @@ pnpm test -- transaction.entity.spec.ts   # um arquivo específico
 pnpm test -- src/modules/financial/       # um módulo específico
 ```
 
+Os testes de **integração** (`infrastructure/persistence/*.spec.ts`, `database.service.spec.ts`, etc.) não usam mock — eles conectam no Postgres real via `pg`. Antes de rodá-los (`pnpm test`, `pnpm test:cov` ou `pnpm test:e2e`), garanta que o banco está no ar e com as migrations aplicadas:
+
+```bash
+docker compose up -d --wait postgres-primary postgres-replica
+pnpm migration:run
+```
+
+Sem isso, os specs de integração falham tentando conectar em `DB_WRITE_HOST`/`DB_READ_HOST` (veja `.env`). O hook `pre-push` (`.husky/pre-push`) já faz os dois passos acima automaticamente antes de rodar `pnpm test:cov` e `pnpm build`.
+
 ### Lint e build
 
 ```bash

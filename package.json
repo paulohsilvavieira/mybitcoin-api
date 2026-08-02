@@ -19,9 +19,12 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prepare": "husky",
+    "prepare:test": "docker compose up -d --wait test-postgres-primary test-postgres-replica && pnpm migration:run:test",
     "migration:create": "ts-node --project tsconfig.scripts.json ./src/infrastructure/database/scripts/create-migration.script.ts",
     "migration:run": "ts-node --project tsconfig.scripts.json ./src/infrastructure/database/scripts/run-migration.script.ts",
-    "migration:dry-run": "DRY_RUN=true ts-node --project tsconfig.scripts.json ./src/infrastructure/database/scripts/run-migration.script.ts"
+    "migration:dry-run": "DRY_RUN=true ts-node --project tsconfig.scripts.json ./src/infrastructure/database/scripts/run-migration.script.ts",
+    "migration:run:test": "NODE_ENV=test pnpm migration:run",
+    "migration:dry-run:test": "NODE_ENV=test DRY_RUN=true pnpm migration:run"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.3",
@@ -104,6 +107,9 @@
     ],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
+    "setupFiles": [
+      "<rootDir>/test-env.setup.ts"
+    ],
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
