@@ -1,5 +1,6 @@
 import cookieParser from 'cookie-parser';
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from '@/app.module';
 import { initializeOpenTelemetry } from '@/infrastructure/telemetry/opentelemetry.config';
@@ -20,6 +21,13 @@ async function bootstrap() {
     credentials: true,
   });
   app.useGlobalFilters(new DomainErrorFilter());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('MyBitcoin API')
