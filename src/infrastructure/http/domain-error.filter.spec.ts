@@ -40,6 +40,26 @@ describe('DomainErrorFilter', () => {
     expect(statusMock).toHaveBeenCalledWith(HttpStatus.CONFLICT);
   });
 
+  it('mapeia INVALID_CREDENTIALS para 401', () => {
+    sut.catch(new FakeError('INVALID_CREDENTIALS'), host);
+    expect(statusMock).toHaveBeenCalledWith(HttpStatus.UNAUTHORIZED);
+  });
+
+  it('mapeia ACCOUNT_SUSPENDED para 403', () => {
+    sut.catch(new FakeError('ACCOUNT_SUSPENDED'), host);
+    expect(statusMock).toHaveBeenCalledWith(HttpStatus.FORBIDDEN);
+  });
+
+  it('mapeia USER_NOT_FOUND para 401 (mesmo tratamento de sessão inválida)', () => {
+    sut.catch(new FakeError('USER_NOT_FOUND'), host);
+    expect(statusMock).toHaveBeenCalledWith(HttpStatus.UNAUTHORIZED);
+  });
+
+  it('mapeia TOO_MANY_LOGIN_ATTEMPTS para 429 (LOG-006)', () => {
+    sut.catch(new FakeError('TOO_MANY_LOGIN_ATTEMPTS'), host);
+    expect(statusMock).toHaveBeenCalledWith(HttpStatus.TOO_MANY_REQUESTS);
+  });
+
   it('usa 422 como default para erro de domínio não mapeado', () => {
     sut.catch(new FakeError('SOME_UNMAPPED_ERROR'), host);
     expect(statusMock).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);

@@ -3,6 +3,9 @@ import { IdentityController } from '@/modules/identity/presentation/identity.con
 import { SessionsController } from '@/modules/identity/presentation/sessions.controller';
 import { SessionAuthGuard } from '@/modules/identity/presentation/guards/session-auth.guard';
 import { RegisterUser } from '@/modules/identity/application/register-user.usecase';
+import { Login } from '@/modules/identity/application/login.usecase';
+import { Logout } from '@/modules/identity/application/logout.usecase';
+import { GetCurrentUser } from '@/modules/identity/application/get-current-user.usecase';
 import { CreateSession } from '@/modules/identity/application/create-session.usecase';
 import { ValidateSession } from '@/modules/identity/application/validate-session.usecase';
 import { ListActiveSessions } from '@/modules/identity/application/list-active-sessions.usecase';
@@ -11,11 +14,13 @@ import { RevokeAllSessions } from '@/modules/identity/application/revoke-all-ses
 import { PgUserRepository } from '@/modules/identity/infrastructure/persistence/pg-user.repository';
 import { PgSessionRepository } from '@/modules/identity/infrastructure/persistence/pg-session.repository';
 import { PgSessionReadRepository } from '@/modules/identity/infrastructure/persistence/pg-session-read.repository';
+import { PgLoginAttemptRepository } from '@/modules/identity/infrastructure/persistence/pg-login-attempt.repository';
 import {
   UserRepository,
   UserReadRepository,
   SessionRepository,
   SessionReadRepository,
+  LoginAttemptRepository,
 } from '@/modules/identity/domain/repositories';
 import { PgUserReadRepository } from '@/modules/identity/infrastructure/persistence/pg-user-read.repository';
 import { EmailService } from '@/modules/identity/domain/services/email.service';
@@ -49,6 +54,11 @@ import * as bcrypt from 'bcrypt';
       inject: [ReadQueryExecutor],
     },
     {
+      provide: LoginAttemptRepository,
+      useFactory: (db: QueryExecutor) => new PgLoginAttemptRepository(db),
+      inject: [QueryExecutor],
+    },
+    {
       provide: EmailService,
       useFactory: () => ({
         sendVerification: () => Promise.resolve(),
@@ -65,6 +75,30 @@ import * as bcrypt from 'bcrypt';
         );
       },
       inject: [UserRepository, EmailService],
+    },
+    {
+      // Usa UserRepository (escrita), não a réplica: evita falso
+      // InvalidCredentialsError por lag de replicação logo após o cadastro.
+      provide: Login,
+      useFactory: (
+        userRepo: UserRepository,
+        loginAttemptRepo: LoginAttemptRepository,
+      ) =>
+        new Login(userRepo, loginAttemptRepo, (plain: string, hash: string) =>
+          bcrypt.compare(plain, hash),
+        ),
+      inject: [UserRepository, LoginAttemptRepository],
+    },
+    {
+      provide: Logout,
+      useFactory: (sessionRepo: SessionRepository) => new Logout(sessionRepo),
+      inject: [SessionRepository],
+    },
+    {
+      provide: GetCurrentUser,
+      useFactory: (userReadRepo: UserReadRepository) =>
+        new GetCurrentUser(userReadRepo),
+      inject: [UserReadRepository],
     },
     {
       provide: CreateSession,
