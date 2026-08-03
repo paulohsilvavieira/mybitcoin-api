@@ -9,6 +9,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
+      FRONTEND_ORIGIN: http://localhost:5173
       DB_WRITE_HOST: postgres-primary
       DB_WRITE_PORT: 5432
       DB_READ_HOST: postgres-replica
