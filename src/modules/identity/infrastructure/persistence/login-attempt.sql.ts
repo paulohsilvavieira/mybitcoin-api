@@ -24,10 +24,15 @@ export function insertLoginAttemptQuery(params: {
 }
 
 /**
- * Falhas desde o último sucesso (ou desde sempre, se nunca houve sucesso) —
- * `COALESCE` com `-infinity` cobre o caso de nenhum login bem-sucedido ainda.
- * `MAX(created_at)` entre as falhas dá o instante que a LoginLockoutPolicy usa
- * para calcular `lockedUntil` (ver login-lockout-policy.ts).
+ * Falhas desde o último sucesso (ou desde sempre, se nunca houve sucesso).
+ * A fronteira usa `seq` (BIGSERIAL, ordem estritamente monotônica atribuída
+ * pelo Postgres no INSERT), não `created_at` — `created_at` vem de `new
+ * Date()` em JS (resolução de milissegundo) e duas tentativas em sequência
+ * rápida podem empatar, fazendo a comparação por timestamp descartar uma
+ * falha por engano. `MAX(created_at)` entre as falhas continua sendo o
+ * instante real que a LoginLockoutPolicy usa para calcular `lockedUntil`
+ * (ver login-lockout-policy.ts) — só a fronteira "desde quando contar" usa
+ * `seq`, o valor de tempo em si continua sendo o relógio de parede.
  */
 export function countFailedLoginAttemptsSinceLastSuccessQuery(email: string): {
   query: string;
@@ -38,9 +43,9 @@ export function countFailedLoginAttemptsSinceLastSuccessQuery(email: string): {
     FROM login_attempts
     WHERE email = $1
       AND successful = FALSE
-      AND created_at > COALESCE(
-        (SELECT MAX(created_at) FROM login_attempts WHERE email = $1 AND successful = TRUE),
-        '-infinity'
+      AND seq > COALESCE(
+        (SELECT MAX(seq) FROM login_attempts WHERE email = $1 AND successful = TRUE),
+        0
       )
   `;
   return { query, values: [email] };
