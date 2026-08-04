@@ -4,6 +4,8 @@
 
 # 1. Cadastro
 
+> **Status:** ✅ Implementado — [ADR 0002](../adr/0002-identity-registration.md), [PR #2](https://github.com/paulohsilvavieira/mybitcoin-api/pull/2)
+
 ## Objetivo
 
 Permitir que um novo usuário crie uma conta na plataforma para acessar funcionalidades da exchange.
@@ -96,6 +98,10 @@ Usuário informa:
 
 # 2. Login
 
+> **Status:** ✅ Implementado — [ADR 0005](../adr/0005-login-logout.md), [PR #5](https://github.com/paulohsilvavieira/mybitcoin-api/pull/5)
+>
+> Desvios conscientes e documentados no ADR: **LOG-002** relaxado — login é permitido tanto para `ACTIVE` quanto `PENDING_EMAIL_VERIFICATION`, já que a Verificação de E-mail (seção 6) ainda não existe; será revertido quando essa funcionalidade for implementada. **LOG-004** (MFA) não é aplicado — MFA (seção 8) não existe no sistema.
+
 ## Objetivo
 
 Autenticar usuários previamente cadastrados.
@@ -160,6 +166,8 @@ Contas sem verificação de e-mail não devem acessar o sistema.
 
 # 3. Logout
 
+> **Status:** ✅ Implementado — [ADR 0005](../adr/0005-login-logout.md), [PR #5](https://github.com/paulohsilvavieira/mybitcoin-api/pull/5)
+
 ## Objetivo
 
 Encerrar uma sessão autenticada.
@@ -210,6 +218,8 @@ Usuário não deve acessar recursos protegidos após logout.
 ---
 
 # 4. Recuperação de Senha
+
+> **Status:** ❌ Não implementado
 
 ## Objetivo
 
@@ -274,6 +284,8 @@ Após redefinição todas as sessões devem ser encerradas.
 
 # 5. Sessões
 
+> **Status:** ✅ Implementado — [ADR 0004](../adr/0004-session-token-transport.md), [PR #4](https://github.com/paulohsilvavieira/mybitcoin-api/pull/4)
+
 ## Objetivo
 
 Controlar sessões autenticadas dos usuários.
@@ -332,6 +344,8 @@ Usuário deve visualizar sessões ativas.
 
 # 6. Verificação de E-mail
 
+> **Status:** ❌ Não implementado — o cadastro (seção 1) gera um token de verificação, mas nunca o persiste nem expõe um endpoint para validá-lo. Nenhuma conta transita de `PENDING_EMAIL_VERIFICATION` para `ACTIVE` hoje.
+
 ## Objetivo
 
 Confirmar que o endereço de e-mail pertence ao usuário.
@@ -385,6 +399,8 @@ Conta validada deve mudar para status ativo.
 ---
 
 # 7. KYC Básico
+
+> **Status:** ❌ Não implementado
 
 ## Objetivo
 
@@ -456,6 +472,8 @@ Dados inválidos devem impedir aprovação.
 ---
 
 # 8. MFA / 2FA
+
+> **Status:** ❌ Não implementado
 
 ## Objetivo
 
