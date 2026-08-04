@@ -157,6 +157,10 @@ Em `docs/adr/` — decisões arquiteturais já tomadas (ADRs antigos em `docs/ol
 | ADR | Decisão |
 |-----|---------|
 | `0001-unit-of-work-pattern.md` | Padrão UnitOfWork para atomicidade (UnitOfWork abstrato + implementação Postgres) |
+| `0002-identity-registration.md` | Cadastro de usuários (CAD-001 a CAD-007) — bounded context `identity`, bcrypt, status `PENDING_EMAIL_VERIFICATION` |
+| `0003-read-write-database-replication.md` | Réplica de leitura PostgreSQL — `WRITE_POOL_TOKEN`/`READ_POOL_TOKEN`, padrão `XRepository`/`XReadRepository` por módulo |
+| `0004-session-token-transport.md` | Transporte de sessão via cookie `httpOnly` (`__Host-session`/`__Host-csrf`), CSRF double-submit, `DomainErrorFilter` |
+| `0005-login-logout.md` | Login e Logout (LOG-001 a LOG-006, OUT-001 a OUT-003) — bloqueio por tentativas (LOG-006), `ValidationPipe` global |
 
 ---
 
