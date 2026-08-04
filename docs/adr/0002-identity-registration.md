@@ -1,6 +1,7 @@
 # ADR 0002 — Identity: Cadastro de Usuários
 
-**Status:** Aceito
+**Status:** Implementado
+**PR:** https://github.com/paulohsilvavieira/mybitcoin-api/pull/2 (mergeado)
 **Data:** 2026-07-12
 **Autores:** Time de Backend
 **Contexto relacionado:** ADR 0001 (UnitOfWork)

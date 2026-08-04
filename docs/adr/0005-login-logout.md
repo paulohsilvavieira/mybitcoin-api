@@ -1,7 +1,9 @@
 
 # ADR 0005 — Identity: Login e Logout
 
-**Status:** Aceito
+**Status:** Implementado
+
+**PR:** https://github.com/paulohsilvavieira/mybitcoin-api/pull/5 (mergeado)
 
 **Data:** 2026-08-01
 

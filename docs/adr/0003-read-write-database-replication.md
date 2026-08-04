@@ -1,6 +1,7 @@
 # ADR 0003 — Separação de Conexões Write/Read (Réplica de Leitura PostgreSQL)
 
-**Status:** Aceito
+**Status:** Implementado
+**PR:** https://github.com/paulohsilvavieira/mybitcoin-api/pull/3 (mergeado)
 **Data:** 2026-07-27
 **Autores:** Time de Backend
 **Contexto relacionado:** ADR 0001 (UnitOfWork), `docs/architecture/03-estrutura-projeto.md`
