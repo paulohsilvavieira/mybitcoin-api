@@ -76,3 +76,16 @@ A pergunta que decide: **"se esse código falhar ou tiver um bug, pode haver per
 - Não → Abordagem simples é suficiente
 
 Dúvida → Clean Architecture. O custo de adicionar a abstração depois é menor que o custo de um bug financeiro.
+
+---
+
+## Use cases de leitura pura (evitar boilerplate dentro da própria CA)
+
+Escolher Clean Architecture para um fluxo (por cair na linha vermelha) não dá carta branca para empilhar indireção sem função. Um problema recorrente identificado no projeto (ex: `GetBalancesUseCase`, `GetCurrentUser`, `ListActiveSessions`): o use case é `find + map` puro, sem nenhuma validação, decisão ou orquestração — existe só porque "toda operação tem um use case".
+
+**Regra:** a camada `presentation` sempre chama um use case (nunca um repositório diretamente — mantém `controller → application → infrastructure`). Mas o use case de leitura pura deve:
+
+- Retornar a entidade de domínio direto (`Promise<Wallet[]>`), não recriar um DTO/interface própria (`BalanceResult`) que só duplica os campos da entidade — esse mapeamento intermediário não tem função e obriga a presentation a mapear duas vezes o mesmo dado.
+- Existir mesmo sem lógica hoje, se lógica futura é esperada (ex: filtro por saldo mínimo, paginação, agregação) — mas isso deve estar dito no ADR ou num comentário, não implícito.
+
+A conversão de tipo para a borda HTTP (`bigint` → `string`) continua sendo responsabilidade exclusiva do `presentation` (DTO), nunca do use case.
