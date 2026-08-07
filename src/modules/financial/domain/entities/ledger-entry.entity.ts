@@ -27,4 +27,22 @@ export class LedgerEntry {
       new Date(),
     );
   }
+
+  static restore(params: {
+    id: string;
+    transactionId: string;
+    account: string;
+    type: 'debit' | 'credit';
+    amountSatoshi: bigint;
+    createdAt: Date;
+  }): LedgerEntry {
+    return new LedgerEntry(
+      params.id,
+      params.transactionId,
+      params.account,
+      params.type,
+      params.amountSatoshi,
+      params.createdAt,
+    );
+  }
 }
