@@ -1,6 +1,6 @@
 # ADR 0006 — Financial: Saldos Materializados (Wallets) e Consulta de Saldos
 
-**Status:** Proposto
+**Status:** Em Progresso — PR: https://github.com/paulohsilvavieira/mybitcoin-api/pull/6
 
 **PR:** —
 
