@@ -39,11 +39,13 @@ export class PgLedgerEntryRepository implements LedgerEntryRepository {
   }
 
   private toDomain(row: LedgerEntryRow): LedgerEntry {
-    return LedgerEntry.create({
+    return LedgerEntry.restore({
+      id: row.id,
       transactionId: row.transaction_id,
       account: row.account,
       type: row.type as 'debit' | 'credit',
       amountSatoshi: BigInt(row.amount_satoshi),
+      createdAt: row.created_at,
     });
   }
 }
