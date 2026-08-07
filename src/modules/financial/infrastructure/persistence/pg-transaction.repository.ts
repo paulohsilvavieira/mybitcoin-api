@@ -1,5 +1,8 @@
 import { TransactionRepository } from '@/modules/financial/domain/repositories';
-import { Transaction } from '@/modules/financial/domain/entities';
+import {
+  Transaction,
+  TransactionStatus,
+} from '@/modules/financial/domain/entities';
 import { QueryExecutor } from '@/infrastructure/database/query-executor';
 import {
   findTransactionByIdQuery,
@@ -10,6 +13,7 @@ interface TransactionRow {
   id: string;
   account_id: string;
   type: string;
+  asset: string;
   amount_satoshi: string;
   status: string;
   created_at: Date;
@@ -36,6 +40,7 @@ export class PgTransactionRepository extends TransactionRepository {
       id: transaction.id,
       accountId: transaction.accountId,
       type: transaction.type,
+      asset: transaction.asset,
       amountSatoshi: transaction.amountSatoshi.toString(),
       status: transaction.status,
       createdAt: transaction.createdAt,
@@ -44,10 +49,14 @@ export class PgTransactionRepository extends TransactionRepository {
   }
 
   private toDomain(row: TransactionRow): Transaction {
-    return Transaction.create({
+    return Transaction.restore({
+      id: row.id,
       accountId: row.account_id,
       type: row.type,
+      asset: row.asset,
       amountSatoshi: BigInt(row.amount_satoshi),
+      status: row.status as TransactionStatus,
+      createdAt: row.created_at,
     });
   }
 }

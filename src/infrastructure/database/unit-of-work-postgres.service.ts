@@ -3,6 +3,7 @@ import { UnitOfWork, Repositories } from '@/shared/unit-of-work';
 import { DatabaseService } from '@/infrastructure/database/database.service';
 import { PgTransactionRepository } from '@/modules/financial/infrastructure/persistence/pg-transaction.repository';
 import { PgLedgerEntryRepository } from '@/modules/financial/infrastructure/persistence/pg-ledger-entry.repository';
+import { PgWalletRepository } from '@/modules/financial/infrastructure/persistence/pg-wallet.repository';
 
 @Injectable()
 export class PostgresUnitOfWork implements UnitOfWork {
@@ -14,6 +15,7 @@ export class PostgresUnitOfWork implements UnitOfWork {
         const repositories: Repositories = {
           transactionRepo: new PgTransactionRepository(transactionDatabase),
           ledgerRepo: new PgLedgerEntryRepository(transactionDatabase),
+          walletRepo: new PgWalletRepository(transactionDatabase),
         };
         return fn(repositories);
       },

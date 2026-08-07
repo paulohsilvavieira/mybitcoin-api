@@ -132,5 +132,6 @@ import * as bcrypt from 'bcrypt';
     },
     SessionAuthGuard,
   ],
+  exports: [SessionAuthGuard, ValidateSession],
 })
 export class IdentityModule {}
