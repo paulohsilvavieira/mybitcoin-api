@@ -133,7 +133,7 @@ SQL fica em `src/modules/<contexto>/infrastructure/persistence/*.sql.ts` como co
 
 ## Documentação de negócio
 
-Em `docs/bussiness/` — estes são os documentos que as skills leem como "lei":
+Em `docs/bussiness/` — estes são os documentos de referência tratados como "lei" do domínio:
 
 | Arquivo | Conteúdo |
 |---------|---------|
@@ -161,104 +161,6 @@ Em `docs/adr/` — decisões arquiteturais já tomadas (ADRs antigos em `docs/ol
 | `0003-read-write-database-replication.md` | Réplica de leitura PostgreSQL — `WRITE_POOL_TOKEN`/`READ_POOL_TOKEN`, padrão `XRepository`/`XReadRepository` por módulo |
 | `0004-session-token-transport.md` | Transporte de sessão via cookie `httpOnly` (`__Host-session`/`__Host-csrf`), CSRF double-submit, `DomainErrorFilter` |
 | `0005-login-logout.md` | Login e Logout (LOG-001 a LOG-006, OUT-001 a OUT-003) — bloqueio por tentativas (LOG-006), `ValidationPipe` global |
-
----
-
-## Skills disponíveis
-
-Skills ficam em `.claude/skills/`. Invoque com `/nome-da-skill`.
-
-### Pipeline de ADR
-
-Use este fluxo sempre que uma decisão arquitetural for necessária (novo schema, novo bounded context, mudança de padrão).
-
-| Skill | Comando | Quando usar |
-|-------|---------|------------|
-| `adr-architect` | `/adr-architect` | Iniciar a criação de um ADR — faz perguntas, monta o documento |
-| `adr-validator` | `/adr-validator` | Revisar adversarialmente um ADR antes de implementar |
-| `adr-executor` | `/adr-executor` | Implementar um ADR aceito na ordem correta (domain→application→infrastructure→adapters) |
-| `adr-reviewer` | `/adr-reviewer` | Revisar o diff de implementação contra o ADR |
-| `adr-pr` | `/adr-pr` | Abrir PR com título e body padronizados |
-
-**Ordem do fluxo:** `architect` → `validator` → (humano aprova) → `executor` → `reviewer` → `pr`
-
-### Guards — validadores de regras
-
-Invoque após implementar código que toque os respectivos domínios.
-
-| Skill | Comando | O que valida |
-|-------|---------|-------------|
-| `ledger-guard` | `/ledger-guard` | Invariantes INV-001 a INV-014, dupla entrada, bigint, UnitOfWork |
-| `security-guard` | `/security-guard` | Regras CAD/LOG/OUT/REC/SES/VER/KYC/MFA, bcrypt, SQL parametrizado |
-| `arch-guard` | `/arch-guard` | Regra de Dependência, placement de artefatos, DDD, nomenclatura |
-
-Todos os guards: leem a documentação primeiro, depois analisam código, retornam CONFORME/ÍNTEGRO ou VIOLAÇÃO com evidência `arquivo:linha`.
-
-### Qualidade de código
-
-| Skill | Comando | O que faz |
-|-------|---------|----------|
-| `code-reviewer` | `/code-reviewer` | Avalia complexidade ciclomática/cognitiva, SRP, naming, DRY, valores mágicos — retorna PASS ou ISSUES |
-
-### Testes
-
-| Skill | Comando | O que faz |
-|-------|---------|----------|
-| `test-writer` | `/test-writer` | Escreve testes (unit para entidades/use cases, integração para repositórios) |
-| `test-reviewer` | `/test-reviewer` | Revisa qualidade dos testes, retorna PASS ou ISSUES |
-
-### Documentação da API
-
-| Skill | Comando | O que faz |
-|-------|---------|----------|
-| `swagger-docs` | `/swagger-docs` | Documenta/atualiza anotações `@nestjs/swagger` de um controller — tags, exemplos de body de sucesso e de erro, usando `DomainErrorResponseDto` e as regras reais de status de `domain-error.filter.ts` |
-
-### Planejamento e modelagem (use ANTES de codar)
-
-| Skill | Comando | O que faz |
-|-------|---------|----------|
-| `task-planner` | `/task-planner` | Carrega docs relevantes, classifica CA vs simples, lista artefatos em ordem (API + Frontend), define guards a executar — PARA para aprovação antes de implementar |
-| `domain-modeler` | `/domain-modeler` | Modela entidade/VO/aggregate/event em DDD: determina tipo, define invariantes, projeta interface de repositório e domain events — PARA para aprovação antes de implementar |
-
-### Frontend (cross-project)
-
-| Skill | Comando | O que faz |
-|-------|---------|----------|
-| `frontend-executor` | `/frontend-executor` | Implementa código React no mybitcoin-front: types → services → stores → hooks → components → pages |
-| `frontend-guard` | `/frontend-guard` | Valida código frontend: invariantes (FIN-xxx, UI-xxx, DATA-xxx, SEC-xxx), padrões shadcn, a11y, mobile-first |
-
----
-
-## Pipeline Unificada (API + Frontend)
-
-A pipeline de desenvolvimento suporta implementação cross-project. Config em `.pipeline-config.json`.
-
-Ao invocar `/dev-pipeline`, a API orquestra:
-
-1. **Etapas 1-7:** Backend API (NestJS) — recepção, triagem, ADR, planner, implementação, testes, guards
-2. **Etapas 8-10:** Frontend (React) — implementação, build/lint, guards frontend
-3. **Etapa 11:** Um PR por repositório (API + Frontend)
-
-Para desativar o frontend, responda "apenas API" na Etapa 1.
-
-### Configuração
-
-```json
-// .pipeline-config.json
-{
-  "frontend": {
-    "path": "/home/paulohenrique/Developer/mybitcoin/mybitcoin-front",
-    "srcPath": "src",
-    "packageManager": "pnpm",
-    "commands": {
-      "dev": "pnpm dev",
-      "build": "pnpm build",
-      "lint": "pnpm lint",
-      "test": "pnpm test"
-    }
-  }
-}
-```
 
 ---
 
