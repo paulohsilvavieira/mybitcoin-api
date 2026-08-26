@@ -64,12 +64,12 @@ const sdk = new NodeSDK({
     }),
     exportIntervalMillis: 15_000,
   }),
-  logRecordProcessor: new BatchLogRecordProcessor(
-    new OTLPLogExporter({
+  logRecordProcessor: new BatchLogRecordProcessor({
+    exporter: new OTLPLogExporter({
       url: `${OTEL_HTTP_ENDPOINT}/v1/logs`,
       headers: httpHeaders,
     }),
-  ),
+  }),
   resource,
   instrumentations: [new HttpInstrumentation(), new NestInstrumentation()],
 });
