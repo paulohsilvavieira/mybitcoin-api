@@ -18,6 +18,10 @@ const STATUS_BY_CODE: Record<string, number> = {
   USER_NOT_FOUND: HttpStatus.UNAUTHORIZED,
   // LOG-006 — bloqueio por excesso de tentativas de login.
   TOO_MANY_LOGIN_ATTEMPTS: HttpStatus.TOO_MANY_REQUESTS,
+  // ADR 0006 — recuperação de senha: INVALID_RESET_TOKEN, WEAK_PASSWORD e
+  // ACTIVE_RESET_TOKEN_EXISTS caem no DEFAULT_STATUS (422), que já é o
+  // tratamento correto — nenhuma entrada explícita é necessária.
+  // ACCOUNT_SUSPENDED (redeem com conta suspensa) já está mapeado para 403 acima.
 };
 
 const DEFAULT_STATUS = HttpStatus.UNPROCESSABLE_ENTITY;

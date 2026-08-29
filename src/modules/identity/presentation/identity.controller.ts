@@ -11,7 +11,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import {
+  ApiAcceptedResponse,
   ApiBody,
   ApiCookieAuth,
   ApiCreatedResponse,
@@ -25,6 +27,8 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { RegisterUser } from '@/modules/identity/application/register-user.usecase';
+import { RequestPasswordReset } from '@/modules/identity/application/request-password-reset.usecase';
+import { ConfirmPasswordReset } from '@/modules/identity/application/confirm-password-reset.usecase';
 import { Login } from '@/modules/identity/application/login.usecase';
 import { Logout } from '@/modules/identity/application/logout.usecase';
 import { GetCurrentUser } from '@/modules/identity/application/get-current-user.usecase';
@@ -34,6 +38,9 @@ import { RegisterUserDto } from '@/modules/identity/presentation/dto/register-us
 import { RegisterUserResponseDto } from '@/modules/identity/presentation/dto/register-user-response.dto';
 import { LoginDto } from '@/modules/identity/presentation/dto/login.dto';
 import { LoginResponseDto } from '@/modules/identity/presentation/dto/login-response.dto';
+import { ForgotPasswordDto } from '@/modules/identity/presentation/dto/forgot-password.dto';
+import { ForgotPasswordResponseDto } from '@/modules/identity/presentation/dto/forgot-password-response.dto';
+import { ResetPasswordDto } from '@/modules/identity/presentation/dto/reset-password.dto';
 import { MeResponseDto } from '@/modules/identity/presentation/dto/me-response.dto';
 import { DomainErrorResponseDto } from '@/infrastructure/http/domain-error-response.dto';
 import { SessionAuthGuard } from '@/modules/identity/presentation/guards/session-auth.guard';
@@ -46,6 +53,12 @@ import {
 import { InvalidCredentialsError } from '@/modules/identity/domain/errors/invalid-credentials.error';
 import { AccountSuspendedError } from '@/modules/identity/domain/errors/account-suspended.error';
 import { TooManyLoginAttemptsError } from '@/modules/identity/domain/errors/too-many-login-attempts.error';
+
+/**
+ * Rate-limit por IP dos endpoints de recuperação de senha: 10 req/min.
+ * Reusado no `@Throttle` dos dois endpoints e no `ThrottlerModule.forRoot`.
+ */
+export const PASSWORD_RESET_THROTTLE = { limit: 10, ttl: 60_000 };
 
 function resolveIp(req: Request): string {
   return req.ip || req.socket?.remoteAddress || 'unknown';
@@ -67,6 +80,8 @@ export class IdentityController {
     private readonly getCurrentUser: GetCurrentUser,
     private readonly createSession: CreateSession,
     private readonly revokeAllSessions: RevokeAllSessions,
+    private readonly requestPasswordReset: RequestPasswordReset,
+    private readonly confirmPasswordReset: ConfirmPasswordReset,
   ) {}
 
   @Post('register')
@@ -342,6 +357,135 @@ export class IdentityController {
   })
   async me(@Req() req: AuthenticatedRequest): Promise<MeResponseDto> {
     return this.getCurrentUser.execute({ userId: req.user.userId });
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: PASSWORD_RESET_THROTTLE })
+  @ApiOperation({
+    summary: 'Solicita a redefinição de senha (REC-001)',
+    description:
+      'Envia um link de redefinição para o email informado, quando existir uma conta elegível (PENDING_EMAIL_VERIFICATION ou ACTIVE). A resposta é SEMPRE neutra e idêntica (202 + mesma mensagem) para email existente, inexistente, conta suspensa ou rate-limit por email estourado (LOG-003) — não vaza a existência de conta. Rate-limit por IP: 10 req/min.',
+  })
+  @ApiBody({
+    type: ForgotPasswordDto,
+    examples: {
+      default: {
+        summary: 'Solicitação válida',
+        value: { email: 'ada.lovelace@example.com' },
+      },
+    },
+  })
+  @ApiAcceptedResponse({
+    description: 'Solicitação recebida — resposta neutra (sempre a mesma)',
+    type: ForgotPasswordResponseDto,
+    example: {
+      message:
+        'Se existir uma conta para este e-mail, enviamos um link de redefinição.',
+    },
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Email com formato inválido',
+    type: DomainErrorResponseDto,
+    example: {
+      code: 'INVALID_EMAIL',
+      message: "Invalid email format: 'not-an-email'",
+    },
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'Excesso de solicitações do mesmo IP (10 req/min)',
+  })
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+    @Req() req: Request,
+  ): Promise<ForgotPasswordResponseDto> {
+    const ipAddress = resolveIp(req);
+
+    await this.requestPasswordReset.execute({ email: dto.email, ipAddress });
+
+    this.logger.log('Password reset requested', {
+      operation: 'password_reset.request',
+      ipAddress,
+    });
+
+    return {
+      message:
+        'Se existir uma conta para este e-mail, enviamos um link de redefinição.',
+    };
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: PASSWORD_RESET_THROTTLE })
+  @ApiOperation({
+    summary: 'Redefine a senha a partir de um token (REC-003..006)',
+    description:
+      'Valida a política de senha e o token (uso único, expiração de 30 min). Em caso de sucesso: troca a senha, consome o token, revoga TODAS as sessões do usuário (REC-006), limpa o bloqueio de login por tentativas e limpa os cookies de sessão da resposta. Responde 204.',
+  })
+  @ApiBody({
+    type: ResetPasswordDto,
+    examples: {
+      default: {
+        summary: 'Redefinição válida',
+        value: { token: 'a1b2c3d4e5f6', password: 'Str0ng!Pass' },
+      },
+    },
+  })
+  @ApiNoContentResponse({
+    description: 'Senha redefinida — sessões revogadas e cookies limpos',
+  })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'Token inválido/expirado/consumido (INVALID_RESET_TOKEN) ou nova senha fora da política (WEAK_PASSWORD)',
+    type: DomainErrorResponseDto,
+    examples: {
+      invalidResetToken: {
+        summary: 'Token inválido ou expirado',
+        value: {
+          code: 'INVALID_RESET_TOKEN',
+          message: 'Invalid or expired password reset token',
+        },
+      },
+      weakPassword: {
+        summary: 'Senha fora da política',
+        value: {
+          code: 'WEAK_PASSWORD',
+          message:
+            'Password must contain at least 8 characters with uppercase, lowercase, number and special character',
+        },
+      },
+    },
+  })
+  @ApiForbiddenResponse({
+    description: 'Conta suspensa',
+    type: DomainErrorResponseDto,
+    example: {
+      code: 'ACCOUNT_SUSPENDED',
+      message: 'This account has been suspended',
+    },
+  })
+  @ApiTooManyRequestsResponse({
+    description: 'Excesso de solicitações do mesmo IP (10 req/min)',
+  })
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    const { revokedSessionCount } = await this.confirmPasswordReset.execute({
+      token: dto.token,
+      newPassword: dto.password,
+      ipAddress: resolveIp(req),
+    });
+
+    clearSessionCookies(res);
+
+    this.logger.log('Password reset completed', {
+      operation: 'password_reset.confirm',
+      revokedSessionCount,
+    });
   }
 
   private logLoginFailure(
