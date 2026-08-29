@@ -42,9 +42,12 @@ export function saveUserQuery(params: {
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     ON CONFLICT (id) DO UPDATE SET
       name = $2,
+      password_hash = $4,
       status = $5,
       email_verified = $6,
-      updated_at = $10
+      -- toda atualização (verifyEmail, changePassword) carimba o momento atual;
+      -- o $10 só vale para o INSERT inicial.
+      updated_at = NOW()
   `;
   return {
     query,
