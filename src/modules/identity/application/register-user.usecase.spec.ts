@@ -13,6 +13,7 @@ describe('RegisterUser', () => {
 
   const mockEmailService = {
     sendVerification: jest.fn().mockResolvedValue(undefined),
+    sendPasswordReset: jest.fn().mockResolvedValue(undefined),
   };
 
   const mockHashPassword = jest.fn().mockResolvedValue('$2b$12$hashedpassword');
