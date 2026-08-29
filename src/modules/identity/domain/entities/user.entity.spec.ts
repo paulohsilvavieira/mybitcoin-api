@@ -73,6 +73,26 @@ describe('User', () => {
     });
   });
 
+  describe('changePassword', () => {
+    it('REC-005: troca o hash da senha sem alterar id, email ou status', () => {
+      const user = User.create({
+        name: 'John Doe',
+        email: Email.create('john@example.com'),
+        passwordHash: '$2b$12$old',
+        termsAccepted: true,
+        registrationIp: '127.0.0.1',
+      });
+      const originalId = user.id.toString();
+
+      user.changePassword('$2b$12$new');
+
+      expect(user.passwordHash).toBe('$2b$12$new');
+      expect(user.id.toString()).toBe(originalId);
+      expect(user.email.toString()).toBe('john@example.com');
+      expect(user.status.isPendingEmailVerification()).toBe(true);
+    });
+  });
+
   describe('reconstitute', () => {
     it('reconstitui usuário a partir de dados persistidos', () => {
       const user = User.reconstitute({

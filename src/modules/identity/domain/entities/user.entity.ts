@@ -34,6 +34,15 @@ export class User {
     this._status = UserStatus.active();
   }
 
+  /**
+   * REC-005 — troca o hash da senha. O `updated_at` é responsabilidade do
+   * repositório (mesmo padrão de `Session.revoke`). A política de senha é
+   * validada pelo VO `Password` antes de o hash chegar aqui.
+   */
+  changePassword(newPasswordHash: string): void {
+    this._passwordHash = newPasswordHash;
+  }
+
   static create(params: {
     name: string;
     email: Email;
