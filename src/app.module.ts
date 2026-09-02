@@ -4,6 +4,7 @@ import { DatabaseModule } from '@/infrastructure/database/database.module';
 import { HealthController } from '@/health.controller';
 import { FinancialModule } from '@/modules/financial/financial.module';
 import { IdentityModule } from '@/modules/identity/identity.module';
+import { KycModule } from '@/modules/kyc/kyc.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { IdentityModule } from '@/modules/identity/identity.module';
     DatabaseModule,
     FinancialModule,
     IdentityModule,
+    KycModule,
   ],
   controllers: [HealthController],
   providers: [],

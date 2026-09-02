@@ -18,6 +18,9 @@ const STATUS_BY_CODE: Record<string, number> = {
   USER_NOT_FOUND: HttpStatus.UNAUTHORIZED,
   // LOG-006 — bloqueio por excesso de tentativas de login.
   TOO_MANY_LOGIN_ATTEMPTS: HttpStatus.TOO_MANY_REQUESTS,
+  // KYC (ADR 0007) — conflitos de estado / unicidade.
+  CPF_ALREADY_IN_USE: HttpStatus.CONFLICT,
+  KYC_ALREADY_APPROVED: HttpStatus.CONFLICT,
 };
 
 const DEFAULT_STATUS = HttpStatus.UNPROCESSABLE_ENTITY;

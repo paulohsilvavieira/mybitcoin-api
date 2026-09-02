@@ -132,5 +132,9 @@ import * as bcrypt from 'bcrypt';
     },
     SessionAuthGuard,
   ],
+  // ValidateSession também é exportado: quando outro módulo (ex.: KycModule)
+  // aplica `@UseGuards(SessionAuthGuard)`, o Nest reinstancia o guard no injetor
+  // do módulo consumidor e precisa resolver sua dependência ali.
+  exports: [SessionAuthGuard, ValidateSession],
 })
 export class IdentityModule {}
