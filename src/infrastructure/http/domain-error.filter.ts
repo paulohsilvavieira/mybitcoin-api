@@ -18,6 +18,11 @@ const STATUS_BY_CODE: Record<string, number> = {
   USER_NOT_FOUND: HttpStatus.UNAUTHORIZED,
   // LOG-006 — bloqueio por excesso de tentativas de login.
   TOO_MANY_LOGIN_ATTEMPTS: HttpStatus.TOO_MANY_REQUESTS,
+  // ADR 0006 — wallets / ledger.
+  WALLET_NOT_FOUND: HttpStatus.NOT_FOUND,
+  // Bugs de invariante — falham alto (rollback da UnitOfWork).
+  UNBALANCED_TRANSACTION: HttpStatus.INTERNAL_SERVER_ERROR,
+  BALANCE_PROVISIONING_FAILED: HttpStatus.INTERNAL_SERVER_ERROR,
 };
 
 const DEFAULT_STATUS = HttpStatus.UNPROCESSABLE_ENTITY;

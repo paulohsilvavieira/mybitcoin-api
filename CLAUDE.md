@@ -79,9 +79,11 @@ grep -r "from '.*application\|from '.*infrastructure\|from '.*presentation" src/
 
 ## Convenções críticas
 
-### Valores monetários — sempre `bigint`
+### Valores monetários — sempre `bigint` na menor unidade do ativo
 
-Toda unidade monetária é representada em **satoshi** como `bigint` no TypeScript e `BIGINT` no PostgreSQL. Nunca `number`, nunca `float`, nunca `BigNumber`.
+Toda unidade monetária é representada como `bigint` no TypeScript e `BIGINT` no PostgreSQL, na **menor unidade do ativo** (satoshi para BTC, centavo para BRL, ...). Nunca `number`, nunca `float`, nunca `BigNumber`.
+
+A escala (casas decimais) de cada ativo vem da tabela `assets` (`assets.scale`): `BRL` → `2`, `BTC` → `8`. A conversão para string decimal humana acontece **só na camada de apresentação**.
 
 ```typescript
 // Correto
@@ -91,7 +93,9 @@ const amount: number = 100000
 const amount = new BigNumber(100000)
 ```
 
-Campos SQL devem ter sufixo `_satoshi`: `amount_satoshi BIGINT NOT NULL`.
+**Sufixo de coluna:** `_minor` — `amount_minor BIGINT NOT NULL`, `available_minor`, `locked_minor` (ADR 0006; substitui o antigo `_satoshi`, que não generaliza multi-ativo).
+
+**Value Object `Money`** (`src/modules/wallets/domain/value-objects/money.vo.ts`): `{ assetSymbol, scale, amountMinor: bigint }`. Aritmética só entre `Money` do mesmo ativo; `subtract` lança em resultado negativo.
 
 ### Erros de domínio — sempre tipados
 
@@ -161,6 +165,7 @@ Em `docs/adr/` — decisões arquiteturais já tomadas (ADRs antigos em `docs/ol
 | `0003-read-write-database-replication.md` | Réplica de leitura PostgreSQL — `WRITE_POOL_TOKEN`/`READ_POOL_TOKEN`, padrão `XRepository`/`XReadRepository` por módulo |
 | `0004-session-token-transport.md` | Transporte de sessão via cookie `httpOnly` (`__Host-session`/`__Host-csrf`), CSRF double-submit, `DomainErrorFilter` |
 | `0005-login-logout.md` | Login e Logout (LOG-001 a LOG-006, OUT-001 a OUT-003) — bloqueio por tentativas (LOG-006), `ValidationPipe` global |
+| `0006-wallet-balance-ledger.md` | Aggregate `Wallet`/`Balance`/`Transaction`/`LedgerEntry`/`Asset` — módulo `wallets/` (absorve o antigo `financial/`), primitivas `credit`/`debit`/`lock`/`unlock`, ledger imutável por trigger, VO `Money`, sufixo `_minor`, `GET /wallet/balances` e `GET /wallet/ledger` |
 
 ---
 

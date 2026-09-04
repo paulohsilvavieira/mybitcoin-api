@@ -132,5 +132,8 @@ import * as bcrypt from 'bcrypt';
     },
     SessionAuthGuard,
   ],
+  // ADR 0006 Obs #1: exporta o guard de sessão (e o use case que ele injeta)
+  // para o WalletsModule reusar nas rotas GET /wallet/*.
+  exports: [SessionAuthGuard, ValidateSession],
 })
 export class IdentityModule {}

@@ -53,21 +53,17 @@ src/
 │
 ├── modules/
 │
-│   ├── account/
+│   ├── identity/           # account / autenticação / sessões (ADR 0002–0005)
 │   │
-│   ├── wallets/
-│   │
-│   ├── ledger/
-│   │
+│   ├── wallets/            # Wallet + Balance + Transaction + LedgerEntry + Asset (ADR 0006)
+│   │                       # — consolida o antigo `ledger/` e o removido `financial/`
 │   ├── orders/
 │   │
 │   ├── trades/
 │   │
 │   ├── matching/
 │   │
-│   ├── bitcoin/
-│   │
-│   └── financial/
+│   └── bitcoin/
 │
 ├── shared/
 │   ├── domain.error.ts
@@ -397,7 +393,7 @@ infrastructure/database
 
 Ela é utilizada por qualquer módulo que precise executar operações transacionais. `PostgresUnitOfWork` depende de `DatabaseService` (write) — nunca de `ReadDatabaseService`/`ReadQueryExecutor` — porque toda leitura feita dentro de uma transação precisa ver o próprio estado da transação (read-your-writes), o que a réplica não garante.
 
-> **Nota:** Um arquivo anterior (`unit-of-work.postgres.ts`) existe no repositório mas é código morto — não está conectado ao DI do NestJS. Deve ser removido.
+> **Nota:** O arquivo `unit-of-work.postgres.ts` (código morto) foi removido no ADR 0006. A implementação viva é `unit-of-work-postgres.service.ts`, que instancia os repos do módulo `wallets` (`walletRepo`, `balanceRepo`, `transactionRepo`, `ledgerRepo`).
 
 Fluxo:
 
@@ -544,8 +540,7 @@ A responsabilidade da persistência fica distribuída por domínio.
 | Domínio | Repository            | SQL              |
 | ------- | --------------------- | ---------------- |
 | Orders  | `PgOrderRepository`   | `order.sql.ts`   |
-| Wallets | `PgWalletRepository`  | `wallet.sql.ts`  |
-| Ledger  | `PgLedgerRepository`  | `ledger.sql.ts`  |
+| Wallets | `PgWalletRepository` / `PgBalanceRepository` / `PgTransactionRepository` / `PgLedgerEntryRepository` / `PgAssetRepository` | `wallet.sql.ts` / `balance.sql.ts` / `transaction.sql.ts` / `ledger-entry.sql.ts` / `asset.sql.ts` |
 | Bitcoin | `PgBitcoinRepository` | `bitcoin.sql.ts` |
 
 Não existe uma pasta global contendo todas as queries ou todos os repositórios.

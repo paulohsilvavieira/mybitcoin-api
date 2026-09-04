@@ -251,7 +251,9 @@ try {
 
 Bitcoin opera em satoshis — inteiros, sem decimais. JavaScript tem `bigint` nativo desde ES2020.
 
-**Regra:** Todo valor monetário é `bigint` no domínio. A conversão de/para representação humana (BTC com 8 casas decimais) acontece na camada de apresentação, não no domínio.
+**Regra:** Todo valor monetário é `bigint` no domínio, na menor unidade do ativo. A conversão de/para representação humana acontece na camada de apresentação, não no domínio.
+
+> **Atualização (ADR 0006):** o sistema é multi-ativo (BRL, BTC, ...). O value object canônico passou a ser **`Money`** (`{ assetSymbol, scale, amountMinor: bigint }`) — ver `src/modules/wallets/domain/value-objects/money.vo.ts`. A escala por ativo vem da tabela `assets`. `Satoshi` abaixo é o exemplo histórico do princípio; a implementação real é `Money`. Sufixo de coluna: `_minor`, não `_satoshi`.
 
 ```typescript
 // Value object Satoshi — sem float jamais

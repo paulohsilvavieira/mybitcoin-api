@@ -1,9 +1,13 @@
 import {
+  WalletRepository,
+  BalanceRepository,
   TransactionRepository,
   LedgerEntryRepository,
-} from '@/modules/financial/domain/repositories';
+} from '@/modules/wallets/domain/repositories';
 
 export interface Repositories {
+  walletRepo: WalletRepository;
+  balanceRepo: BalanceRepository;
   transactionRepo: TransactionRepository;
   ledgerRepo: LedgerEntryRepository;
 }

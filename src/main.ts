@@ -42,7 +42,7 @@ async function bootstrap() {
     .addTag('Health', 'Verificação de disponibilidade da API')
     .addTag('Auth', 'Cadastro e autenticação de usuários')
     .addTag('Sessions', 'Gerenciamento de sessões ativas')
-    .addTag('Financial', 'Depósitos, saques e ledger financeiro')
+    .addTag('Wallet', 'Saldos e histórico do ledger financeiro do usuário')
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, swaggerDocument);
