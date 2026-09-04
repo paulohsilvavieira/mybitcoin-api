@@ -35,8 +35,10 @@ import { RegisterUserResponseDto } from '@/modules/identity/presentation/dto/reg
 import { LoginDto } from '@/modules/identity/presentation/dto/login.dto';
 import { LoginResponseDto } from '@/modules/identity/presentation/dto/login-response.dto';
 import { MeResponseDto } from '@/modules/identity/presentation/dto/me-response.dto';
+import { AdminStatusResponseDto } from '@/modules/identity/presentation/dto/admin-status-response.dto';
 import { DomainErrorResponseDto } from '@/infrastructure/http/domain-error-response.dto';
 import { SessionAuthGuard } from '@/modules/identity/presentation/guards/session-auth.guard';
+import { AdminGuard } from '@/modules/identity/presentation/guards/admin.guard';
 import { AuthenticatedRequest } from '@/modules/identity/presentation/authenticated-request';
 import {
   SESSION_COOKIE_NAME,
@@ -342,6 +344,27 @@ export class IdentityController {
   })
   async me(@Req() req: AuthenticatedRequest): Promise<MeResponseDto> {
     return this.getCurrentUser.execute({ userId: req.user.userId });
+  }
+
+  @Get('me/admin-status')
+  @UseGuards(SessionAuthGuard, AdminGuard)
+  @ApiCookieAuth(SESSION_COOKIE_NAME)
+  @ApiOperation({
+    summary: 'Retorna o papel administrativo do usuário autenticado',
+    description:
+      'Usado pelo frontend após o login para decidir se exibe a área administrativa. Retorna 200 com o papel se o usuário é administrador; 403 se não é; 401 se não há sessão.',
+  })
+  @ApiOkResponse({
+    description: 'Usuário autenticado é administrador',
+    type: AdminStatusResponseDto,
+    example: { role: 'SUPER_ADMIN' },
+  })
+  @ApiForbiddenResponse({
+    description: 'Usuário autenticado não é administrador',
+    type: DomainErrorResponseDto,
+  })
+  meAdminStatus(@Req() req: AuthenticatedRequest): AdminStatusResponseDto {
+    return { role: req.admin!.role };
   }
 
   private logLoginFailure(

@@ -4,4 +4,8 @@ export interface AuthenticatedRequest extends Request {
   user: {
     userId: string;
   };
+  admin?: {
+    id: string;
+    role: string;
+  };
 }

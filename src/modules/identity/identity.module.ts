@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { IdentityController } from '@/modules/identity/presentation/identity.controller';
 import { SessionsController } from '@/modules/identity/presentation/sessions.controller';
 import { SessionAuthGuard } from '@/modules/identity/presentation/guards/session-auth.guard';
+import { AdminGuard } from '@/modules/identity/presentation/guards/admin.guard';
 import { RegisterUser } from '@/modules/identity/application/register-user.usecase';
 import { Login } from '@/modules/identity/application/login.usecase';
 import { Logout } from '@/modules/identity/application/logout.usecase';
@@ -15,12 +16,14 @@ import { PgUserRepository } from '@/modules/identity/infrastructure/persistence/
 import { PgSessionRepository } from '@/modules/identity/infrastructure/persistence/pg-session.repository';
 import { PgSessionReadRepository } from '@/modules/identity/infrastructure/persistence/pg-session-read.repository';
 import { PgLoginAttemptRepository } from '@/modules/identity/infrastructure/persistence/pg-login-attempt.repository';
+import { PgAdministratorReadRepository } from '@/modules/identity/infrastructure/persistence/pg-administrator-read.repository';
 import {
   UserRepository,
   UserReadRepository,
   SessionRepository,
   SessionReadRepository,
   LoginAttemptRepository,
+  AdministratorReadRepository,
 } from '@/modules/identity/domain/repositories';
 import { PgUserReadRepository } from '@/modules/identity/infrastructure/persistence/pg-user-read.repository';
 import { EmailService } from '@/modules/identity/domain/services/email.service';
@@ -130,7 +133,20 @@ import * as bcrypt from 'bcrypt';
         new RevokeAllSessions(sessionRepo),
       inject: [SessionRepository],
     },
+    {
+      provide: AdministratorReadRepository,
+      useFactory: (readDb: ReadQueryExecutor) =>
+        new PgAdministratorReadRepository(readDb),
+      inject: [ReadQueryExecutor],
+    },
     SessionAuthGuard,
+    AdminGuard,
+  ],
+  exports: [
+    AdminGuard,
+    AdministratorReadRepository,
+    SessionAuthGuard,
+    ValidateSession,
   ],
 })
 export class IdentityModule {}

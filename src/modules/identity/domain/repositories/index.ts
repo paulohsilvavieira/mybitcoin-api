@@ -1,3 +1,4 @@
+export * from './administrator-read.repository';
 export * from './login-attempt.repository';
 export * from './session-read.repository';
 export * from './session.repository';

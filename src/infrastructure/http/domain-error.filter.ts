@@ -13,6 +13,7 @@ const STATUS_BY_CODE: Record<string, number> = {
   SESSION_ALREADY_REVOKED: HttpStatus.CONFLICT,
   INVALID_CREDENTIALS: HttpStatus.UNAUTHORIZED,
   ACCOUNT_SUSPENDED: HttpStatus.FORBIDDEN,
+  ADMIN_ACCESS_DENIED: HttpStatus.FORBIDDEN,
   // Invariante quebrada (sessão sem usuário) — 401 força re-autenticação,
   // mesmo tratamento de sessão inválida (ADR 0005).
   USER_NOT_FOUND: HttpStatus.UNAUTHORIZED,
