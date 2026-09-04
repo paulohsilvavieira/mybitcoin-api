@@ -10,12 +10,15 @@ import { InvalidCredentialsError } from '@/modules/identity/domain/errors/invali
 import { AccountSuspendedError } from '@/modules/identity/domain/errors/account-suspended.error';
 import { InvalidEmailError } from '@/modules/identity/domain/errors/invalid-email.error';
 import { TooManyLoginAttemptsError } from '@/modules/identity/domain/errors/too-many-login-attempts.error';
+import { EmailNotVerifiedError } from '@/modules/identity/domain/errors/email-not-verified.error';
 
 describe('Login', () => {
   const mockUserRepo = {
     findById: jest.fn(),
     findByEmail: jest.fn(),
     save: jest.fn(),
+    findByEmailVerificationTokenHash: jest.fn(),
+    issueEmailVerificationTokenIfDue: jest.fn(),
   };
   const mockLoginAttemptRepo = {
     record: jest.fn(),
@@ -70,19 +73,38 @@ describe('Login', () => {
     });
   });
 
-  it('autentica usuário PENDING_EMAIL_VERIFICATION (LOG-002 relaxado)', async () => {
+  it('lança EmailNotVerifiedError para usuário PENDING_EMAIL_VERIFICATION (LOG-002 revertido, ADR 0006)', async () => {
+    const user = buildUser('PENDING_EMAIL_VERIFICATION');
+    mockUserRepo.findByEmail.mockResolvedValue(user);
+    comparePassword.mockResolvedValue(true);
+
+    const error = await sut
+      .execute({
+        email: 'ada.lovelace@example.com',
+        password: 'Str0ng!Pass',
+        ipAddress: IP,
+      })
+      .catch((thrown: EmailNotVerifiedError) => thrown);
+
+    expect(error).toBeInstanceOf(EmailNotVerifiedError);
+    expect(error.userId).toBe(user.id.toString());
+  });
+
+  it('não registra a tentativa (nem sucesso nem falha) para conta PENDING_EMAIL_VERIFICATION', async () => {
     mockUserRepo.findByEmail.mockResolvedValue(
       buildUser('PENDING_EMAIL_VERIFICATION'),
     );
     comparePassword.mockResolvedValue(true);
 
-    const output = await sut.execute({
-      email: 'ada.lovelace@example.com',
-      password: 'Str0ng!Pass',
-      ipAddress: IP,
-    });
+    await sut
+      .execute({
+        email: 'ada.lovelace@example.com',
+        password: 'Str0ng!Pass',
+        ipAddress: IP,
+      })
+      .catch(() => undefined);
 
-    expect(output.status).toBe('PENDING_EMAIL_VERIFICATION');
+    expect(mockLoginAttemptRepo.record).not.toHaveBeenCalled();
   });
 
   it('compara a senha informada contra o hash persistido do usuário', async () => {

@@ -18,6 +18,12 @@ const STATUS_BY_CODE: Record<string, number> = {
   USER_NOT_FOUND: HttpStatus.UNAUTHORIZED,
   // LOG-006 — bloqueio por excesso de tentativas de login.
   TOO_MANY_LOGIN_ATTEMPTS: HttpStatus.TOO_MANY_REQUESTS,
+  // ADR 0006 — Identity: Verificação de E-mail.
+  EMAIL_VERIFICATION_TOKEN_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+  EMAIL_VERIFICATION_TOKEN_EXPIRED: HttpStatus.UNPROCESSABLE_ENTITY,
+  // Mesmo tratamento de ACCOUNT_SUSPENDED — credenciais corretas, mas
+  // estado de conta ainda não desbloqueia o login (ADR 0005/0006).
+  EMAIL_NOT_VERIFIED: HttpStatus.FORBIDDEN,
 };
 
 const DEFAULT_STATUS = HttpStatus.UNPROCESSABLE_ENTITY;

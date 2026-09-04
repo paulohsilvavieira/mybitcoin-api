@@ -19,6 +19,7 @@ import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiResponse,
   ApiTags,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
@@ -30,11 +31,16 @@ import { Logout } from '@/modules/identity/application/logout.usecase';
 import { GetCurrentUser } from '@/modules/identity/application/get-current-user.usecase';
 import { CreateSession } from '@/modules/identity/application/create-session.usecase';
 import { RevokeAllSessions } from '@/modules/identity/application/revoke-all-sessions.usecase';
+import { VerifyEmail } from '@/modules/identity/application/verify-email.usecase';
+import { ResendVerificationEmail } from '@/modules/identity/application/resend-verification-email.usecase';
 import { RegisterUserDto } from '@/modules/identity/presentation/dto/register-user.dto';
 import { RegisterUserResponseDto } from '@/modules/identity/presentation/dto/register-user-response.dto';
 import { LoginDto } from '@/modules/identity/presentation/dto/login.dto';
 import { LoginResponseDto } from '@/modules/identity/presentation/dto/login-response.dto';
 import { MeResponseDto } from '@/modules/identity/presentation/dto/me-response.dto';
+import { VerifyEmailDto } from '@/modules/identity/presentation/dto/verify-email.dto';
+import { VerifyEmailResponseDto } from '@/modules/identity/presentation/dto/verify-email-response.dto';
+import { ResendVerificationEmailDto } from '@/modules/identity/presentation/dto/resend-verification-email.dto';
 import { DomainErrorResponseDto } from '@/infrastructure/http/domain-error-response.dto';
 import { SessionAuthGuard } from '@/modules/identity/presentation/guards/session-auth.guard';
 import { AuthenticatedRequest } from '@/modules/identity/presentation/authenticated-request';
@@ -46,6 +52,7 @@ import {
 import { InvalidCredentialsError } from '@/modules/identity/domain/errors/invalid-credentials.error';
 import { AccountSuspendedError } from '@/modules/identity/domain/errors/account-suspended.error';
 import { TooManyLoginAttemptsError } from '@/modules/identity/domain/errors/too-many-login-attempts.error';
+import { EmailNotVerifiedError } from '@/modules/identity/domain/errors/email-not-verified.error';
 
 function resolveIp(req: Request): string {
   return req.ip || req.socket?.remoteAddress || 'unknown';
@@ -67,6 +74,8 @@ export class IdentityController {
     private readonly getCurrentUser: GetCurrentUser,
     private readonly createSession: CreateSession,
     private readonly revokeAllSessions: RevokeAllSessions,
+    private readonly verifyEmailUseCase: VerifyEmail,
+    private readonly resendVerificationEmailUseCase: ResendVerificationEmail,
   ) {}
 
   @Post('register')
@@ -175,11 +184,23 @@ export class IdentityController {
     },
   })
   @ApiForbiddenResponse({
-    description: 'Conta suspensa',
+    description: 'Conta suspensa, ou e-mail ainda não verificado',
     type: DomainErrorResponseDto,
-    example: {
-      code: 'ACCOUNT_SUSPENDED',
-      message: 'This account has been suspended',
+    examples: {
+      accountSuspended: {
+        summary: 'Conta suspensa',
+        value: {
+          code: 'ACCOUNT_SUSPENDED',
+          message: 'This account has been suspended',
+        },
+      },
+      emailNotVerified: {
+        summary: 'E-mail ainda não verificado',
+        value: {
+          code: 'EMAIL_NOT_VERIFIED',
+          message: 'Please verify your email before logging in',
+        },
+      },
     },
   })
   @ApiUnprocessableEntityResponse({
@@ -344,6 +365,73 @@ export class IdentityController {
     return this.getCurrentUser.execute({ userId: req.user.userId });
   }
 
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Confirma o e-mail do usuário a partir do token recebido por e-mail',
+    description:
+      'Chamado pela página de verificação do frontend após ler o token da URL. Idempotente: reclicar no mesmo link de uma conta já verificada continua retornando 200.',
+  })
+  @ApiBody({ type: VerifyEmailDto })
+  @ApiOkResponse({
+    description: 'E-mail verificado (ou já estava verificado)',
+    type: VerifyEmailResponseDto,
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Token inválido, já usado, de conta suspensa, ou expirado',
+    type: DomainErrorResponseDto,
+    examples: {
+      invalid: {
+        summary: 'Token inválido',
+        value: {
+          code: 'EMAIL_VERIFICATION_TOKEN_INVALID',
+          message: 'Invalid or already used verification token',
+        },
+      },
+      expired: {
+        summary: 'Token expirado',
+        value: {
+          code: 'EMAIL_VERIFICATION_TOKEN_EXPIRED',
+          message: 'Verification token has expired',
+        },
+      },
+    },
+  })
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+  ): Promise<VerifyEmailResponseDto> {
+    return this.verifyEmailUseCase.execute({ token: dto.token });
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Reenvia o e-mail de verificação',
+    description:
+      'Sempre responde 202 com a mesma mensagem, independente de o e-mail existir, já estar verificado, a conta estar suspensa, ou estar em cooldown — não revela qual desses casos ocorreu (mesmo racional de LOG-003).',
+  })
+  @ApiBody({ type: ResendVerificationEmailDto })
+  @ApiResponse({
+    status: HttpStatus.ACCEPTED,
+    description: 'Solicitação aceita — resposta sempre igual',
+    schema: {
+      example: {
+        message:
+          'If an account with this email exists and is not yet verified, a new verification email has been sent.',
+      },
+    },
+  })
+  async resendVerification(
+    @Body() dto: ResendVerificationEmailDto,
+  ): Promise<{ message: string }> {
+    await this.resendVerificationEmailUseCase.execute({ email: dto.email });
+    return {
+      message:
+        'If an account with this email exists and is not yet verified, a new verification email has been sent.',
+    };
+  }
+
   private logLoginFailure(
     error: unknown,
     email: string,
@@ -365,6 +453,17 @@ export class IdentityController {
       this.warnLoginRejected(
         'Login rejected: account suspended',
         'login.error.account_suspended',
+        error.code,
+        { userId: error.userId, email, ipAddress },
+        startTime,
+      );
+      return;
+    }
+
+    if (error instanceof EmailNotVerifiedError) {
+      this.warnLoginRejected(
+        'Login rejected: email not verified',
+        'login.error.email_not_verified',
         error.code,
         { userId: error.userId, email, ipAddress },
         startTime,

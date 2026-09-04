@@ -12,10 +12,18 @@ import {
 } from '@/infrastructure/database/database.token';
 import { IdentityModule } from '@/modules/identity/identity.module';
 import { DomainErrorFilter } from '@/infrastructure/http/domain-error.filter';
+import { EmailService } from '@/modules/identity/domain/services/email.service';
 import {
   SESSION_COOKIE_NAME,
   CSRF_COOKIE_NAME,
 } from '@/modules/identity/presentation/session-cookies';
+
+interface FakeEmailService extends EmailService {
+  sendVerification: jest.Mock<
+    Promise<void>,
+    [{ to: string; name: string; token: string }]
+  >;
+}
 
 const PASSWORD = 'Str0ng!Pass';
 
@@ -47,15 +55,23 @@ describe('IdentityController — autenticação (integração)', () => {
   let readPool: Pool;
   let email: string;
   let userId: string;
+  let fakeEmailService: FakeEmailService;
 
   beforeAll(async () => {
+    fakeEmailService = {
+      sendVerification: jest.fn().mockResolvedValue(undefined),
+    };
+
     const moduleRef = await Test.createTestingModule({
       imports: [
         ConfigModule.forRoot({ isGlobal: true }),
         DatabaseModule,
         IdentityModule,
       ],
-    }).compile();
+    })
+      .overrideProvider(EmailService)
+      .useValue(fakeEmailService)
+      .compile();
 
     app = moduleRef.createNestApplication<App>();
     app.use(cookieParser());
@@ -92,6 +108,21 @@ describe('IdentityController — autenticação (integração)', () => {
     userId = registerResponse.body.userId as string;
 
     await waitForReplica(userId);
+
+    const verificationCall = fakeEmailService.sendVerification.mock.calls.find(
+      (call) => call[0].to === email,
+    );
+    if (!verificationCall) {
+      throw new Error(
+        'sendVerification não foi chamado para o email de teste durante o registro',
+      );
+    }
+    const verificationToken = verificationCall[0].token;
+
+    await request(server)
+      .post('/auth/verify-email')
+      .send({ token: verificationToken })
+      .expect(200);
   }, 30_000);
 
   afterAll(async () => {
@@ -152,7 +183,7 @@ describe('IdentityController — autenticação (integração)', () => {
         userId,
         name: 'Ada Lovelace',
         email,
-        status: 'PENDING_EMAIL_VERIFICATION',
+        status: 'ACTIVE',
       });
     });
 
@@ -269,7 +300,7 @@ describe('IdentityController — autenticação (integração)', () => {
         expect(response.body.message).not.toContain(userId);
       } finally {
         await writePool.query(
-          `UPDATE users SET status = 'PENDING_EMAIL_VERIFICATION' WHERE id = $1`,
+          `UPDATE users SET status = 'ACTIVE' WHERE id = $1`,
           [userId],
         );
       }
@@ -430,7 +461,7 @@ describe('IdentityController — autenticação (integração)', () => {
         id: userId,
         name: 'Ada Lovelace',
         email,
-        status: 'PENDING_EMAIL_VERIFICATION',
+        status: 'ACTIVE',
       });
     });
 
@@ -449,6 +480,105 @@ describe('IdentityController — autenticação (integração)', () => {
         .get('/auth/me')
         .set('Cookie', cookieHeader(cookies))
         .expect(401);
+    });
+  });
+
+  describe('Verificação de e-mail (ADR 0006)', () => {
+    it('responde 403 EMAIL_NOT_VERIFIED ao logar com conta PENDING_EMAIL_VERIFICATION', async () => {
+      const unverifiedEmail = `unverified-${Date.now()}@example.com`;
+      const registerResponse = await request(server)
+        .post('/auth/register')
+        .send({
+          name: 'Grace Hopper',
+          email: unverifiedEmail,
+          password: PASSWORD,
+          termsAccepted: true,
+        })
+        .expect(201);
+      const unverifiedUserId = registerResponse.body.userId as string;
+
+      try {
+        const response = await request(server)
+          .post('/auth/login')
+          .send({ email: unverifiedEmail, password: PASSWORD })
+          .expect(403);
+
+        expect(response.body).toEqual({
+          code: 'EMAIL_NOT_VERIFIED',
+          message: 'Please verify your email before logging in',
+        });
+      } finally {
+        await writePool.query('DELETE FROM sessions WHERE user_id = $1', [
+          unverifiedUserId,
+        ]);
+        await writePool.query('DELETE FROM users WHERE id = $1', [
+          unverifiedUserId,
+        ]);
+      }
+    });
+
+    it('responde 422 EMAIL_VERIFICATION_TOKEN_INVALID com token inválido', async () => {
+      const response = await request(server)
+        .post('/auth/verify-email')
+        .send({ token: 'a'.repeat(64) })
+        .expect(422);
+
+      expect(response.body).toEqual({
+        code: 'EMAIL_VERIFICATION_TOKEN_INVALID',
+        message: 'Invalid or already used verification token',
+      });
+    });
+
+    it('duas solicitações de reenvio concorrentes só disparam um e-mail (cooldown atômico)', async () => {
+      const concurrentEmail = `concurrent-resend-${Date.now()}@example.com`;
+      const registerResponse = await request(server)
+        .post('/auth/register')
+        .send({
+          name: 'Concurrent User',
+          email: concurrentEmail,
+          password: PASSWORD,
+          termsAccepted: true,
+        })
+        .expect(201);
+      const concurrentUserId = registerResponse.body.userId as string;
+
+      try {
+        // O cadastro já emite um token e marca `email_verification_last_sent_at`
+        // com o horário atual — para testar o cooldown do *reenvio* de forma
+        // isolada, simulamos que o cooldown de 60s do cadastro já passou.
+        await writePool.query(
+          `UPDATE users
+           SET email_verification_last_sent_at = NOW() - INTERVAL '5 minutes'
+           WHERE id = $1`,
+          [concurrentUserId],
+        );
+
+        fakeEmailService.sendVerification.mockClear();
+
+        await Promise.all([
+          request(server)
+            .post('/auth/resend-verification')
+            .send({ email: concurrentEmail })
+            .expect(202),
+          request(server)
+            .post('/auth/resend-verification')
+            .send({ email: concurrentEmail })
+            .expect(202),
+        ]);
+
+        const callsForThisEmail =
+          fakeEmailService.sendVerification.mock.calls.filter(
+            (call) => call[0].to === concurrentEmail,
+          );
+        expect(callsForThisEmail).toHaveLength(1);
+      } finally {
+        await writePool.query('DELETE FROM sessions WHERE user_id = $1', [
+          concurrentUserId,
+        ]);
+        await writePool.query('DELETE FROM users WHERE id = $1', [
+          concurrentUserId,
+        ]);
+      }
     });
   });
 });

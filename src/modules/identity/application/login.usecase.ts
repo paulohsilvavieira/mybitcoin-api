@@ -8,6 +8,7 @@ import { UserStatusType } from '@/modules/identity/domain/value-objects/user-sta
 import { InvalidCredentialsError } from '@/modules/identity/domain/errors/invalid-credentials.error';
 import { AccountSuspendedError } from '@/modules/identity/domain/errors/account-suspended.error';
 import { TooManyLoginAttemptsError } from '@/modules/identity/domain/errors/too-many-login-attempts.error';
+import { EmailNotVerifiedError } from '@/modules/identity/domain/errors/email-not-verified.error';
 
 export interface LoginInput {
   email: string;
@@ -64,6 +65,14 @@ export class Login {
       throw new AccountSuspendedError(user.id.toString());
     }
 
+    if (user.status.isPendingEmailVerification()) {
+      // LOG-002 revertido (ADR 0006): reverte o relaxamento do ADR 0005
+      // agora que o fluxo de verificação de e-mail existe. Mesmo
+      // tratamento de AccountSuspendedError — credenciais já foram
+      // validadas corretamente, não passa pelo contador de LOG-006.
+      throw new EmailNotVerifiedError(user.id.toString());
+    }
+
     await this.loginAttemptRepo.record(
       LoginAttempt.create({
         email: normalizedEmail,
@@ -73,8 +82,6 @@ export class Login {
       }),
     );
 
-    // LOG-002 relaxado (ADR 0005): PENDING_EMAIL_VERIFICATION e ACTIVE são
-    // ambos aceitos enquanto o fluxo de verificação de e-mail não existir.
     return {
       userId: user.id.toString(),
       name: user.name,

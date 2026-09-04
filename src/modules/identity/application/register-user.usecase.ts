@@ -1,8 +1,9 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { User } from '@/modules/identity/domain/entities/user.entity';
 import { Email } from '@/modules/identity/domain/value-objects/email.vo';
 import { UserRepository } from '@/modules/identity/domain/repositories';
 import { EmailService } from '@/modules/identity/domain/services/email.service';
+import { EmailVerificationPolicy } from '@/modules/identity/domain/services/email-verification-policy';
 import { EmailAlreadyExistsError } from '@/modules/identity/domain/errors/email-already-exists.error';
 import { TermsNotAcceptedError } from '@/modules/identity/domain/errors/terms-not-accepted.error';
 import { Logger } from '@nestjs/common';
@@ -60,6 +61,17 @@ export class RegisterUser {
       registrationIp: input.registrationIp,
     });
 
+    const verificationToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256')
+      .update(verificationToken)
+      .digest('hex');
+    const now = new Date();
+    user.issueEmailVerificationToken(
+      tokenHash,
+      EmailVerificationPolicy.computeExpiry(now),
+      now,
+    );
+
     await this.userRepo.save(user);
 
     this.logger.log('User registration completed', {
@@ -69,7 +81,6 @@ export class RegisterUser {
       duration_ms: Date.now() - startTime,
     });
 
-    const verificationToken = randomBytes(32).toString('hex');
     this.emailService
       .sendVerification({
         to: input.email,

@@ -344,7 +344,7 @@ Usuário deve visualizar sessões ativas.
 
 # 6. Verificação de E-mail
 
-> **Status:** ❌ Não implementado — o cadastro (seção 1) gera um token de verificação, mas nunca o persiste nem expõe um endpoint para validá-lo. Nenhuma conta transita de `PENDING_EMAIL_VERIFICATION` para `ACTIVE` hoje.
+> **Status:** ✅ Implementado — [ADR 0006](../adr/0006-email-verification.md)
 
 ## Objetivo
 

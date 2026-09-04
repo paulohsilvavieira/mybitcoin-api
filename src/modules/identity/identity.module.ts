@@ -11,6 +11,8 @@ import { ValidateSession } from '@/modules/identity/application/validate-session
 import { ListActiveSessions } from '@/modules/identity/application/list-active-sessions.usecase';
 import { RevokeSession } from '@/modules/identity/application/revoke-session.usecase';
 import { RevokeAllSessions } from '@/modules/identity/application/revoke-all-sessions.usecase';
+import { VerifyEmail } from '@/modules/identity/application/verify-email.usecase';
+import { ResendVerificationEmail } from '@/modules/identity/application/resend-verification-email.usecase';
 import { PgUserRepository } from '@/modules/identity/infrastructure/persistence/pg-user.repository';
 import { PgSessionRepository } from '@/modules/identity/infrastructure/persistence/pg-session.repository';
 import { PgSessionReadRepository } from '@/modules/identity/infrastructure/persistence/pg-session-read.repository';
@@ -24,9 +26,11 @@ import {
 } from '@/modules/identity/domain/repositories';
 import { PgUserReadRepository } from '@/modules/identity/infrastructure/persistence/pg-user-read.repository';
 import { EmailService } from '@/modules/identity/domain/services/email.service';
+import { ResendEmailService } from '@/modules/identity/infrastructure/services/resend-email.service';
 import { QueryExecutor } from '@/infrastructure/database/query-executor';
 import { ReadQueryExecutor } from '@/infrastructure/database/read-query-executor';
 import * as bcrypt from 'bcrypt';
+import { Resend } from 'resend';
 
 @Module({
   controllers: [IdentityController, SessionsController],
@@ -60,9 +64,17 @@ import * as bcrypt from 'bcrypt';
     },
     {
       provide: EmailService,
-      useFactory: () => ({
-        sendVerification: () => Promise.resolve(),
-      }),
+      useFactory: () => {
+        const apiKey = process.env.RESEND_API_KEY;
+        const from = process.env.EMAIL_FROM;
+        const frontendOrigin = process.env.FRONTEND_ORIGIN;
+        if (!apiKey || !from || !frontendOrigin) {
+          throw new Error(
+            'RESEND_API_KEY, EMAIL_FROM e FRONTEND_ORIGIN são obrigatórias para o EmailService',
+          );
+        }
+        return new ResendEmailService(new Resend(apiKey), from, frontendOrigin);
+      },
     },
 
     {
@@ -129,6 +141,17 @@ import * as bcrypt from 'bcrypt';
       useFactory: (sessionRepo: SessionRepository) =>
         new RevokeAllSessions(sessionRepo),
       inject: [SessionRepository],
+    },
+    {
+      provide: VerifyEmail,
+      useFactory: (userRepo: UserRepository) => new VerifyEmail(userRepo),
+      inject: [UserRepository],
+    },
+    {
+      provide: ResendVerificationEmail,
+      useFactory: (userRepo: UserRepository, emailService: EmailService) =>
+        new ResendVerificationEmail(userRepo, emailService),
+      inject: [UserRepository, EmailService],
     },
     SessionAuthGuard,
   ],

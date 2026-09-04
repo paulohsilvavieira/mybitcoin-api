@@ -410,3 +410,9 @@ O `/security-guard` (Etapa 7 da pipeline) encontrou 2 itens ALTO/MÉDIO além do
 Adicionado `app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))` em `main.ts`. Efeito colateral encontrado e corrigido: `ConfirmDepositInputDTO` (módulo `financial`) não tinha nenhum decorator `class-validator` — com `whitelist`/`forbidNonWhitelisted` ativados globalmente, os campos seriam descartados/rejeitados silenciosamente em produção (nenhum teste de integração via HTTP cobria esse endpoint, então o `pnpm test` não pegaria isso). Adicionados `@IsUUID()` em `transactionId` e `@IsInt() @Min(0)` em `confirmations`. Auditoria confirmou que nenhum outro DTO de entrada do projeto está sem validador.
 
 **Testes:** `login.usecase.spec.ts` ganhou a suíte `LOG-006 — bloqueio por excesso de tentativas` (registro de tentativa com/sem `userId`, bloqueio ativo, bloqueio expirado, não-bloqueio para email inexistente não distinguível de conta real). 175 testes verdes (API), build real (`tsconfig.build.json`) limpo.
+
+---
+
+## Emenda — Reversão de LOG-002 (ADR 0006) — 2026-08-29
+
+O relaxamento de LOG-002 documentado neste ADR ("PENDING_EMAIL_VERIFICATION e ACTIVE são ambos aceitos") foi revertido pelo ADR 0006 (Verificação de E-mail), que implementa o fluxo de verificação que este ADR previa como pré-requisito para a reversão. `Login` agora bloqueia contas `PENDING_EMAIL_VERIFICATION` com `EmailNotVerifiedError` (403). Ver docs/adr/0006-email-verification.md.

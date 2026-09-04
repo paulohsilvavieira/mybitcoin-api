@@ -15,6 +15,9 @@ export class User {
     readonly registrationIp: string,
     readonly createdAt: Date,
     readonly updatedAt: Date,
+    private _emailVerificationTokenHash: string | null,
+    private _emailVerificationExpiresAt: Date | null,
+    private _emailVerificationLastSentAt: Date | null,
   ) {}
 
   get passwordHash(): string {
@@ -29,7 +32,41 @@ export class User {
     return this._emailVerified;
   }
 
+  get emailVerificationTokenHash(): string | null {
+    return this._emailVerificationTokenHash;
+  }
+
+  get emailVerificationExpiresAt(): Date | null {
+    return this._emailVerificationExpiresAt;
+  }
+
+  get emailVerificationLastSentAt(): Date | null {
+    return this._emailVerificationLastSentAt;
+  }
+
+  issueEmailVerificationToken(
+    tokenHash: string,
+    expiresAt: Date,
+    sentAt: Date,
+  ): void {
+    this._emailVerificationTokenHash = tokenHash;
+    this._emailVerificationExpiresAt = expiresAt;
+    this._emailVerificationLastSentAt = sentAt;
+  }
+
+  /**
+   * Guard idempotente (ADR 0006, Emenda gap 1): só transiciona
+   * PENDING_EMAIL_VERIFICATION → ACTIVE. Para qualquer outro status
+   * (ACTIVE, SUSPENDED) é no-op silencioso — protege o invariante no
+   * próprio aggregate, mesmo que um caller futuro esqueça de checar o
+   * status antes de chamar este método. Não limpa os campos de token
+   * (ver Rationale do ADR 0006 — idempotência de reclique no link).
+   */
   verifyEmail(): void {
+    if (!this._status.isPendingEmailVerification()) {
+      return;
+    }
+
     this._emailVerified = true;
     this._status = UserStatus.active();
   }
@@ -57,6 +94,9 @@ export class User {
       params.registrationIp,
       now,
       now,
+      null,
+      null,
+      null,
     );
   }
 
@@ -71,6 +111,9 @@ export class User {
     registrationIp: string;
     createdAt: Date;
     updatedAt: Date;
+    emailVerificationTokenHash?: string | null;
+    emailVerificationExpiresAt?: Date | null;
+    emailVerificationLastSentAt?: Date | null;
   }): User {
     return new User(
       params.id,
@@ -83,6 +126,9 @@ export class User {
       params.registrationIp,
       params.createdAt,
       params.updatedAt,
+      params.emailVerificationTokenHash ?? null,
+      params.emailVerificationExpiresAt ?? null,
+      params.emailVerificationLastSentAt ?? null,
     );
   }
 }

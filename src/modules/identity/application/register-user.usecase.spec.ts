@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { RegisterUser } from '@/modules/identity/application/register-user.usecase';
 import { EmailAlreadyExistsError } from '@/modules/identity/domain/errors/email-already-exists.error';
 import { TermsNotAcceptedError } from '@/modules/identity/domain/errors/terms-not-accepted.error';
@@ -9,6 +10,8 @@ describe('RegisterUser', () => {
     findById: jest.fn(),
     findByEmail: jest.fn(),
     save: jest.fn(),
+    findByEmailVerificationTokenHash: jest.fn(),
+    issueEmailVerificationTokenIfDue: jest.fn(),
   };
 
   const mockEmailService = {
@@ -121,6 +124,22 @@ describe('RegisterUser', () => {
 
       const calledWith = mockUserRepo.findByEmail.mock.calls[0][0];
       expect(calledWith.toString()).toBe('john@example.com');
+    });
+
+    it('persiste o hash do token de verificação (não o token em claro) antes de save', async () => {
+      mockUserRepo.findByEmail.mockResolvedValue(null);
+
+      await sut.execute(validInput);
+
+      const savedUser = mockUserRepo.save.mock.calls[0][0] as User;
+      const sentToken = mockEmailService.sendVerification.mock.calls[0][0]
+        .token as string;
+      const expectedHash = createHash('sha256').update(sentToken).digest('hex');
+
+      expect(savedUser.emailVerificationTokenHash).toBe(expectedHash);
+      expect(savedUser.emailVerificationTokenHash).not.toBe(sentToken);
+      expect(savedUser.emailVerificationExpiresAt).toBeInstanceOf(Date);
+      expect(savedUser.emailVerificationLastSentAt).toBeInstanceOf(Date);
     });
   });
 });

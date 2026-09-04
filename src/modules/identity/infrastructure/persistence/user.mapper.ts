@@ -17,6 +17,9 @@ export interface UserRow {
   registration_ip: string;
   created_at: Date;
   updated_at: Date;
+  email_verification_token_hash: string | null;
+  email_verification_expires_at: Date | null;
+  email_verification_last_sent_at: Date | null;
 }
 
 export class UserMapper {
@@ -32,6 +35,9 @@ export class UserMapper {
       registrationIp: row.registration_ip,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      emailVerificationTokenHash: row.email_verification_token_hash,
+      emailVerificationExpiresAt: row.email_verification_expires_at,
+      emailVerificationLastSentAt: row.email_verification_last_sent_at,
     });
   }
 
@@ -46,6 +52,9 @@ export class UserMapper {
     registrationIp: string;
     createdAt: Date;
     updatedAt: Date;
+    emailVerificationTokenHash: string | null;
+    emailVerificationExpiresAt: Date | null;
+    emailVerificationLastSentAt: Date | null;
   } {
     return {
       id: user.id.toString(),
@@ -58,6 +67,9 @@ export class UserMapper {
       registrationIp: user.registrationIp,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      emailVerificationTokenHash: user.emailVerificationTokenHash,
+      emailVerificationExpiresAt: user.emailVerificationExpiresAt,
+      emailVerificationLastSentAt: user.emailVerificationLastSentAt,
     };
   }
 }
